@@ -12,6 +12,7 @@ from yoyo import get_backend, read_migrations
 from src.adapters.embedding import SentenceTransformerEmbedder
 from src.adapters.geocoding import NominatimGeocoder
 from src.adapters.providers.cloudru_web import CloudRuWebProvider
+from src.adapters.providers.selectel_web import SelectelWebProvider
 from src.adapters.providers.t1_local import T1LocalCloudProvider
 from src.adapters.providers.t1_web import T1WebCloudProvider
 from src.adapters.providers.yandex_cloud_web import YandexCloudWebProvider
@@ -36,6 +37,7 @@ class Settings:
     use_t1_web_provider: bool
     use_cloudru_provider: bool
     use_yandex_cloud_provider: bool
+    use_selectel_provider: bool
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -62,6 +64,7 @@ class Settings:
             use_t1_web_provider=os.environ.get("T1_WEB_PROVIDER", "false").lower() == "true",
             use_cloudru_provider=os.environ.get("CLOUDRU_WEB_PROVIDER", "false").lower() == "true",
             use_yandex_cloud_provider=os.environ.get("YANDEX_CLOUD_WEB_PROVIDER", "false").lower() == "true",
+            use_selectel_provider=os.environ.get("SELECTEL_WEB_PROVIDER", "false").lower() == "true",
         )
 
 
@@ -117,6 +120,16 @@ class Application:
                     name="Yandex Cloud",
                     base_platform="Yandex Cloud",
                     regions=["Москва"],
+                ),
+            ))
+
+        if settings.use_selectel_provider:
+            providers.append(SelectelWebProvider(
+                provider_defaults=Provider(
+                    provider_id="selectel",
+                    name="Selectel",
+                    base_platform="Selectel",
+                    regions=["Москва", "Санкт-Петербург"],
                 ),
             ))
 

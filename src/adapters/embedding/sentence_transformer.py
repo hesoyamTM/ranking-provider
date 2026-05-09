@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 from functools import partial
 
@@ -9,7 +7,9 @@ from src.models import Service
 
 
 class SentenceTransformerEmbedder:
-    def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> None:
+    def __init__(
+        self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    ) -> None:
         self._model = SentenceTransformer(model_name)
 
     @staticmethod
