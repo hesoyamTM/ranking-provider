@@ -4,7 +4,6 @@ import asyncio
 import logging
 import os
 from dataclasses import dataclass
-from functools import partial
 from pathlib import Path
 
 from openai import AsyncOpenAI
@@ -23,7 +22,6 @@ logger = logging.getLogger(__name__)
 class Settings:
     postgres_dsn: str
     yandex_api_key: str
-    yandex_folder_id: str
     yandex_model: str
     yandex_base_url: str
     data_dir: Path
@@ -33,19 +31,13 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
-        folder_id = os.environ.get("YANDEX_FOLDER_ID", "")
-        model_id = os.environ.get(
-            "YANDEX_MODEL",
-            f"gpt://{folder_id}/yandexgpt/latest" if folder_id else "yandexgpt/latest",
-        )
         return cls(
             postgres_dsn=os.environ.get(
                 "POSTGRES_DSN",
                 "postgresql://postgres:postgres@localhost:5432/provider_ranking",
             ),
             yandex_api_key=os.environ.get("YANDEX_API_KEY", ""),
-            yandex_folder_id=folder_id,
-            yandex_model=model_id,
+            yandex_model=os.environ.get("YANDEX_MODEL", "yandexgpt-5/latest"),
             yandex_base_url=os.environ.get(
                 "YANDEX_BASE_URL", "https://llm.api.cloud.yandex.net/v1"
             ),

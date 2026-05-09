@@ -70,9 +70,15 @@ class T1LocalCloudProvider:
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": raw},
             ],
-            response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content or "{}"
+        # strip possible markdown code fences
+        content = content.strip()
+        if content.startswith("```"):
+            content = content.split("```", 2)[1]
+            if content.startswith("json"):
+                content = content[4:]
+            content = content.rsplit("```", 1)[0].strip()
         return json.loads(content)
 
     async def fetch(self) -> ServicePackage:
