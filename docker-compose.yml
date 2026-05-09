@@ -1,0 +1,50 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: provider_ranking
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d provider_ranking"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  agent:
+    build: .
+    command: run
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DSN: postgresql://postgres:postgres@db:5432/provider_ranking
+      T1_DATA_DIR: /app/data/t1
+      MIGRATIONS_DIR: /app/migration
+    volumes:
+      - ./data:/app/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+
+  migrate:
+    build: .
+    command: migrate
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DSN: postgresql://postgres:postgres@db:5432/provider_ranking
+      MIGRATIONS_DIR: /app/migration
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+    profiles:
+      - migrate
+
+volumes:
+  pgdata:
