@@ -12,6 +12,12 @@ class Provider(BaseModel):
     regions: list[str] = Field(default_factory=list)
 
 
+class RegionCoord(BaseModel):
+    region: str
+    lat: float
+    lon: float
+
+
 class Service(BaseModel):
     service_id: str
     category: str
@@ -22,6 +28,8 @@ class Service(BaseModel):
     price_unit: str
     compliance_tags: list[str] = Field(default_factory=list)
     tech_tags: list[str] = Field(default_factory=list)
+    regions: list[str] = Field(default_factory=list)
+    region_coords: list[RegionCoord] = Field(default_factory=list)
 
 
 class ServicePackage(BaseModel):

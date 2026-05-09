@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import psycopg
 from pgvector.psycopg import register_vector_async
 
@@ -37,14 +39,18 @@ class PostgresServiceRepository:
         service: Service,
         embedding: list[float],
     ) -> None:
+        region_coords_json = json.dumps(
+            [rc.model_dump() for rc in service.region_coords]
+        )
         await cur.execute(
             """
             INSERT INTO services (
                 service_id, provider_id, category, name, description,
                 pricing_model, price_from_rub, price_unit,
-                compliance_tags, tech_tags, embedding
+                compliance_tags, tech_tags, embedding,
+                regions, region_coords
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (provider_id, service_id) DO UPDATE SET
                 category = EXCLUDED.category,
                 name = EXCLUDED.name,
@@ -55,6 +61,8 @@ class PostgresServiceRepository:
                 compliance_tags = EXCLUDED.compliance_tags,
                 tech_tags = EXCLUDED.tech_tags,
                 embedding = EXCLUDED.embedding,
+                regions = EXCLUDED.regions,
+                region_coords = EXCLUDED.region_coords,
                 updated_at = NOW()
             """,
             (
@@ -69,6 +77,8 @@ class PostgresServiceRepository:
                 service.compliance_tags,
                 service.tech_tags,
                 embedding,
+                service.regions,
+                region_coords_json,
             ),
         )
 

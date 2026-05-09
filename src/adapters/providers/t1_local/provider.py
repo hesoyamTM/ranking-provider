@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from pathlib import Path
 
 from openai import AsyncOpenAI
@@ -13,6 +14,41 @@ from src.models import Provider, Service, ServicePackage
 logger = logging.getLogger(__name__)
 
 _MAX_CHARS = 14_000
+_MAX_CHARS_TARIFF = 56_000
+
+# Matches top-level group headings in the tariff document.
+# Examples: "1. Группа услуг Compute", "9. Программные услуги ...", "13. Услуга X", "8. Сетевые услуги"
+_GROUP_RE = re.compile(
+    r'(?=\n\s*\d{1,2}\.\s+(?:Группа услуг|Программные услуги|Услуга |Сетевые услуги))',
+    re.MULTILINE,
+)
+
+
+def _split_tariff_groups(text: str) -> list[str]:
+    """Split full tariff text into per-group chunks for separate LLM calls."""
+    chunks = _GROUP_RE.split(text)
+    result = [c.strip() for c in chunks if c.strip() and re.match(r'\d{1,2}\.', c.strip())]
+    return result if result else [text]
+
+
+def _parse_llm_json(content: str, source: str) -> list[dict]:
+    content = content.strip()
+    if content.startswith("```"):
+        content = content.split("```", 2)[1]
+        if content.startswith("json"):
+            content = content[4:]
+        content = content.rsplit("```", 1)[0].strip()
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError:
+        logger.error("Invalid JSON from LLM for %s: %s", source, content[:200])
+        return []
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict) and "service_id" in payload:
+        return [payload]
+    logger.warning("Unexpected LLM response shape for %s", source)
+    return []
 
 # Prompt for service description documents (Prilozhenie 6.x)
 SERVICE_PROMPT = """Ты извлекаешь структурированные данные об облачных услугах из документа-описания услуги.
@@ -35,31 +71,66 @@ SERVICE_PROMPT = """Ты извлекаешь структурированные
   "price_from_rub": <число>,
   "price_unit": "<единица тарификации>",
   "compliance_tags": [],
-  "tech_tags": ["тег1", "тег2"]
+  "tech_tags": ["тег1", "тег2"],
+  "regions": ["<город/регион, где доступна услуга>"]
 }
-Или JSON-массив таких объектов если услуг несколько."""
+Или JSON-массив таких объектов если услуг несколько.
+regions: список городов/регионов России на русском языке (например ["Москва", "Санкт-Петербург"]).
+Если регион не упомянут явно — укажи ["Москва"] как дефолтный для T1 Cloud."""
 
 # Prompt for the tariff document (Prilozhenie_1)
-TARIFF_PROMPT = """Ты извлекаешь услуги из тарифного приложения облачного провайдера.
+TARIFF_PROMPT = """Ты извлекаешь КАЖДУЮ отдельную строку из тарифных таблиц документа как самостоятельную услугу.
 
-ПРАВИЛА:
-- Извлекай только ГРУППЫ УСЛУГ верхнего уровня как отдельные услуги
-- НЕ создавай отдельные записи для каждой строки тарифа (CPU, RAM, диски — это не услуги)
-- Для каждой группы услуг верни ОДНУ запись с минимальной ценой из группы
-- Пропускай группы Compute и GPUaaS — у них есть отдельные файлы описания
-- Включай только группы без отдельных файлов описания: HaaS (Выделенный сервер), сетевые услуги если есть
+СТРУКТУРА ДОКУМЕНТА:
+Документ состоит из пронумерованных групп («N. Группа услуг X»). В каждой группе — таблица со столбцами:
+  № | Наименование услуг | Единица измерения | Стоимость за единицу в минуту, руб. БЕЗ НДС | Стоимость за единицу в месяц, руб. БЕЗ НДС
+
+ПРАВИЛА ИЗВЛЕЧЕНИЯ:
+1. Каждая строка таблицы → отдельный объект в результирующем массиве.
+2. name: точно как в колонке «Наименование услуг» (можно сократить до 120 символов).
+3. service_id: CamelCase slug латиницей. Строй как <ПрефиксГруппы>_<ПрефиксСтроки>.
+   Префиксы групп:
+   - «Compute (Cloud Engine)»            → CloudEngine
+   - «GPUaaS (Cloud Engine)»             → CloudEngineGPU
+   - «Compute (Cloud Director)»          → CloudDirector
+   - «Compute (Cloud Director PAYG)»     → CloudDirectorPAYG
+   - «GPUaaS (Cloud Director)»           → CloudDirectorGPU
+   - «Хранение и резервное копирование»  → Storage
+   - «Выделенный сервер» / HaaS          → HaaS
+   - «Сетевые услуги»                    → Network
+   - «Microsoft»                         → MsLicense
+   - «Astra Linux»                       → AstraLinux
+   - «Альт Сервер» / «Альт»             → AltServer
+   - «РЕД ОС»                            → RedOs
+   - любая другая группа                 → <транслит первых слов>
+   Пример: группа «Compute (Cloud Engine)», строка «vCPU a1» → service_id: «CloudEngine_vCpuA1»
+4. category:
+   - Compute/GPUaaS группы (Cloud Engine, Cloud Director) → «Compute» или «GPUaaS»
+   - Хранение / резервное копирование → «Storage» или «Backup» (по смыслу строки)
+   - HaaS → «Compute»
+   - Сетевые / CDN → «Networking» или «CDN»
+   - Программные лицензии (Microsoft, Astra, Альт, РЕД ОС) → «Software»
+5. price_from_rub: значение из «Стоимость за единицу в минуту» если есть (не «-»), иначе из «Стоимость за единицу в месяц». Число, не строка. Запятую заменяй на точку.
+6. pricing_model: «per-minute» если использована поминутная цена, «per-month» если только месячная.
+7. price_unit: значение из колонки «Единица измерения» (шт, ГБ, пользователь, вирт. машина и т.д.).
+8. description: 1 предложение — укажи группу и суть ресурса.
+9. tech_tags: серия процессора / GPU / ОС / тип диска из названия строки, если есть.
+10. compliance_tags: [].
+
+11. regions: список городов/регионов России где доступна услуга (на русском). Если не указано явно — ["Москва"].
 
 Верни СТРОГО валидный JSON-массив (без markdown, без пояснений):
 [{
-  "service_id": "<CamelCase slug латиницей>",
-  "category": "<Compute|Networking|Storage|Backup|CDN>",
-  "name": "<название группы услуг>",
-  "description": "<краткое описание>",
-  "pricing_model": "<per-month|per-minute>",
-  "price_from_rub": <минимальная цена из группы, число>,
-  "price_unit": "<единица>",
+  "service_id": "...",
+  "category": "...",
+  "name": "...",
+  "description": "...",
+  "pricing_model": "per-minute|per-month",
+  "price_from_rub": <число>,
+  "price_unit": "...",
   "compliance_tags": [],
-  "tech_tags": []
+  "tech_tags": [],
+  "regions": ["Москва"]
 }]"""
 
 
@@ -103,56 +174,47 @@ class T1LocalCloudProvider:
             if p.is_file() and p.suffix.lower() in self._SUPPORTED
         )
 
-    async def _extract_from_file(self, path: Path) -> list[Service]:
-        text = await asyncio.get_running_loop().run_in_executor(None, _read_file, path)
-        text = text[:_MAX_CHARS]
-        if not text.strip():
-            logger.warning("Empty text in %s, skipping", path.name)
-            return []
-
-        is_tariff = _is_tariff_file(path)
-        system_prompt = TARIFF_PROMPT if is_tariff else SERVICE_PROMPT
-
+    async def _llm_chunk(self, text: str, system_prompt: str, label: str) -> list[Service]:
         async with self._semaphore:
-            logger.info("Processing %s [%s]", path.name, "tariff" if is_tariff else "service")
+            logger.info("Processing chunk [%s]", label)
             response = await self._client.chat.completions.create(
                 model=self._model,
                 temperature=0.0,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"FILE: {path.name}\n\n{text}"},
+                    {"role": "user", "content": text},
                 ],
             )
-
-        content = response.choices[0].message.content or "{}"
-        content = content.strip()
-        if content.startswith("```"):
-            content = content.split("```", 2)[1]
-            if content.startswith("json"):
-                content = content[4:]
-            content = content.rsplit("```", 1)[0].strip()
-
-        try:
-            payload = json.loads(content)
-        except json.JSONDecodeError:
-            logger.error("Invalid JSON from LLM for %s: %s", path.name, content[:200])
-            return []
-
-        if isinstance(payload, list):
-            items = payload
-        elif isinstance(payload, dict) and "service_id" in payload:
-            items = [payload]
-        else:
-            logger.warning("Unexpected LLM response shape for %s", path.name)
-            return []
-
+        items = _parse_llm_json(response.choices[0].message.content or "{}", label)
         services = []
         for item in items:
             try:
                 services.append(Service.model_validate(item))
             except Exception:
-                logger.exception("Failed to parse service from %s: %s", path.name, item)
+                logger.exception("Failed to parse service from %s: %s", label, item)
         return services
+
+    async def _extract_from_file(self, path: Path) -> list[Service]:
+        text = await asyncio.get_running_loop().run_in_executor(None, _read_file, path)
+        is_tariff = _is_tariff_file(path)
+        text = text[:(_MAX_CHARS_TARIFF if is_tariff else _MAX_CHARS)]
+
+        if not text.strip():
+            logger.warning("Empty text in %s, skipping", path.name)
+            return []
+
+        if is_tariff:
+            groups = _split_tariff_groups(text)
+            logger.info("Processing %s [tariff] — %d group(s)", path.name, len(groups))
+            results = await asyncio.gather(*[
+                self._llm_chunk(chunk, TARIFF_PROMPT, f"{path.name}:group{i+1}")
+                for i, chunk in enumerate(groups)
+            ])
+            return [svc for batch in results for svc in batch]
+
+        return await self._llm_chunk(
+            f"FILE: {path.name}\n\n{text}", SERVICE_PROMPT, path.name
+        )
 
     async def fetch(self) -> ServicePackage:
         files = self._source_files()

@@ -10,7 +10,9 @@ from openai import AsyncOpenAI
 from yoyo import get_backend, read_migrations
 
 from src.adapters.embedding import SentenceTransformerEmbedder
+from src.adapters.geocoding import NominatimGeocoder
 from src.adapters.providers.t1_local import T1LocalCloudProvider
+from src.adapters.providers.t1_web import T1WebCloudProvider
 from src.adapters.repository import PostgresServiceRepository
 from src.models import Provider
 from src.service import ProviderSyncWorker
@@ -28,6 +30,7 @@ class Settings:
     migrations_dir: Path
     sync_interval_seconds: float
     embedding_model: str
+    use_web_provider: bool
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -50,6 +53,7 @@ class Settings:
             embedding_model=os.environ.get(
                 "EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
             ),
+            use_web_provider=os.environ.get("T1_USE_WEB_PROVIDER", "false").lower() == "true",
         )
 
 
@@ -62,26 +66,37 @@ class Application:
             base_url=settings.yandex_base_url,
         )
 
-        self.provider = T1LocalCloudProvider(
-            data_dir=settings.data_dir,
-            client=self.openai_client,
-            model=settings.yandex_model,
-            provider_defaults=Provider(
-                provider_id="t1-cloud",
-                name="Т1 Облако",
-                base_platform="OpenStack",
-                regions=["Москва"],
-            ),
+        _t1_provider_defaults = Provider(
+            provider_id="t1-cloud",
+            name="Т1 Облако",
+            base_platform="OpenStack",
+            regions=["Москва"],
         )
+
+        if settings.use_web_provider:
+            self.provider = T1WebCloudProvider(
+                client=self.openai_client,
+                model=settings.yandex_model,
+                provider_defaults=_t1_provider_defaults,
+            )
+        else:
+            self.provider = T1LocalCloudProvider(
+                data_dir=settings.data_dir,
+                client=self.openai_client,
+                model=settings.yandex_model,
+                provider_defaults=_t1_provider_defaults,
+            )
 
         self.embedder = SentenceTransformerEmbedder(model_name=settings.embedding_model)
         self.repository = PostgresServiceRepository(dsn=settings.postgres_dsn)
+        self.geocoder = NominatimGeocoder()
 
         self.worker = ProviderSyncWorker(
             providers=[self.provider],
             repository=self.repository,
             embedder=self.embedder,
             interval_seconds=settings.sync_interval_seconds,
+            geocoder=self.geocoder,
         )
 
     async def migrate(self) -> None:
