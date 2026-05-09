@@ -31,13 +31,16 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        folder_id = os.environ.get("YANDEX_FOLDER_ID", "")
+        model_name = os.environ.get("YANDEX_MODEL", "yandexgpt-5/latest")
+        model = f"gpt://{folder_id}/{model_name}" if folder_id else model_name
         return cls(
             postgres_dsn=os.environ.get(
                 "POSTGRES_DSN",
                 "postgresql://postgres:postgres@localhost:5432/provider_ranking",
             ),
             yandex_api_key=os.environ.get("YANDEX_API_KEY", ""),
-            yandex_model=os.environ.get("YANDEX_MODEL", "yandexgpt-5/latest"),
+            yandex_model=model,
             yandex_base_url=os.environ.get(
                 "YANDEX_BASE_URL", "https://llm.api.cloud.yandex.net/v1"
             ),
