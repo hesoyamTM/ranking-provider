@@ -1,3 +1,3 @@
-from src.application.app import Application, Settings, build_application
+from src.application.app import Application, build_application
 
-__all__ = ["Application", "Settings", "build_application"]
+__all__ = ["Application", "build_application"]

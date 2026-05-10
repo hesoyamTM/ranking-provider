@@ -1,55 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import uuid
 from typing import Any, AsyncGenerator, Protocol, runtime_checkable
 
-from src.models import Service
+from src.models.agent import LLMResponse, Message, RankedResource
 from src.models.service_package import UserQuery
 
 TOOL_ASK_CLARIFICATION = "ask_clarification"
 TOOL_RANK_SERVICES = "rank_services"
-
-# Сообщение в формате OpenAI Chat API: {"role": ..., "content": ..., ...}
-Message = dict[str, Any]
-
-
-@dataclass
-class ToolCall:
-    """Вызов инструмента, выполненный моделью."""
-
-    id: str
-    name: str
-    arguments: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class LLMResponse:
-    """Ответ модели на один шаг диалога."""
-
-    content: str | None
-    tool_calls: list[ToolCall] = field(default_factory=list)
-
-
-@dataclass
-class ScoringWeights:
-    semantic: float = 0.4
-    price: float = 0.3
-    geo: float = 0.2
-    tags: float = 0.1
-
-
-@dataclass
-class RankedResource:
-    service: Service
-    score: float
-    rank: int
 
 
 @runtime_checkable
 class LLMClient(Protocol):
     """Клиент языковой модели с поддержкой function calling и стриминга."""
 
-    system_prompt: str
+    @property
+    def system_prompt(self) -> str: ...
 
     async def chat(self, messages: list[dict[str, Any]]) -> LLMResponse: ...
 
@@ -71,3 +37,32 @@ class RelevanceScorer(Protocol):
         self,
         query: UserQuery,
     ) -> list[RankedResource]: ...
+
+
+@runtime_checkable
+class ChatRepository(Protocol):
+    """Хранилище истории сообщений чата."""
+
+    async def create_chat(self, user_id: uuid.UUID) -> uuid.UUID:
+        """Создать новый чат для существующего пользователя. Возвращает chat_id."""
+        ...
+
+    async def get_chats_by_user(self, user_id: uuid.UUID) -> list[uuid.UUID]:
+        """Вернуть список chat_id пользователя."""
+        ...
+
+    async def get_chat_by_id(
+        self, chat_id: uuid.UUID, user_id: uuid.UUID
+    ) -> list[Message]:
+        """Вернуть историю сообщений чата (пустой список, если чата нет)."""
+        ...
+
+    async def append_message(
+        self, chat_id: uuid.UUID, user_id: uuid.UUID, message: Message
+    ) -> None:
+        """Добавить одно сообщение в историю чата."""
+        ...
+
+    async def delete_chat(self, chat_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Удалить чат и все сообщения в нем."""
+        ...

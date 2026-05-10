@@ -5,11 +5,10 @@ from typing import Any, AsyncGenerator, ClassVar
 
 from openai import AsyncOpenAI
 
+from src.models.agent import LLMResponse, ToolCall
 from src.service.agent.protocols import (
     TOOL_ASK_CLARIFICATION as _TOOL_ASK_CLARIFICATION,
     TOOL_RANK_SERVICES as _TOOL_RANK_SERVICES,
-    LLMResponse,
-    ToolCall,
 )
 
 
@@ -94,10 +93,16 @@ class YandexGPTAdapter:
         },
     ]
 
-    def __init__(self, client: AsyncOpenAI, model: str, temperature: float = 0.1) -> None:
+    def __init__(
+        self, client: AsyncOpenAI, model: str, temperature: float = 0.1
+    ) -> None:
         self._client = client
         self._model = model
         self._temperature = temperature
+
+    @property
+    def system_prompt(self) -> str:
+        return self.SYSTEM_PROMPT
 
     async def chat(self, messages: list[dict[str, Any]]) -> LLMResponse:
         response = await self._client.chat.completions.create(
@@ -111,7 +116,9 @@ class YandexGPTAdapter:
         tool_calls: list[ToolCall] = []
         for tc in message.tool_calls or []:
             try:
-                arguments = json.loads(tc.function.arguments) if tc.function.arguments else {}
+                arguments = (
+                    json.loads(tc.function.arguments) if tc.function.arguments else {}
+                )
             except json.JSONDecodeError:
                 arguments = {}
             tool_calls.append(
