@@ -20,6 +20,7 @@ class Settings:
     use_cloudru_provider: bool
     use_yandex_cloud_provider: bool
     use_selectel_provider: bool
+    use_vk_cloud_provider: bool = True
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -60,6 +61,10 @@ class Settings:
             == "true",
             use_selectel_provider=os.environ.get(
                 "SELECTEL_WEB_PROVIDER", "false"
+            ).lower()
+            == "true",
+            use_vk_cloud_provider=os.environ.get(
+                "VK_CLOUD_WEB_PROVIDER", default="false"
             ).lower()
             == "true",
         )

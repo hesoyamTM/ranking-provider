@@ -15,6 +15,7 @@ from src.adapters.providers.cloudru_web import CloudRuWebProvider
 from src.adapters.providers.selectel_web import SelectelWebProvider
 from src.adapters.providers.t1_local import T1LocalCloudProvider
 from src.adapters.providers.t1_web import T1WebCloudProvider
+from src.adapters.providers.vkcloud_web.provider import VkCloudWebProvider
 from src.adapters.providers.yandex_cloud_web import YandexCloudWebProvider
 from src.adapters.repository import InMemoryChatRepository, PostgresServiceRepository
 from src.controller.restapi.v1.ranking.router import get_html_router, get_router
@@ -100,6 +101,18 @@ class Application:
                         name="Selectel",
                         base_platform="Selectel",
                         regions=["Москва", "Санкт-Петербург"],
+                    ),
+                )
+            )
+
+        if settings.use_vk_cloud_provider:  # Проверь, как называется этот флаг в твоем Settings
+            providers.append(
+                VkCloudWebProvider(
+                    provider_defaults=Provider(
+                        provider_id="vk-cloud",
+                        name="VK Cloud",
+                        base_platform="VK Cloud",
+                        regions=["Москва"],
                     ),
                 )
             )
