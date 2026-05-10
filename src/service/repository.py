@@ -20,8 +20,12 @@ class ServiceRepository(Protocol):
         embedding: list[float],
     ) -> None: ...
 
-    async def search_by_embedding(
+    async def search_by_embedding_top_services(
         self,
         query_embedding: list[float],
-        top_k: int = 50,
+    ) -> list[tuple[Service, list[float], list[RegionCoord]]]: ...
+
+    async def search_by_embedding_all_providers(
+        self,
+        query_embedding: list[float],
     ) -> list[tuple[Service, list[float], list[RegionCoord]]]: ...

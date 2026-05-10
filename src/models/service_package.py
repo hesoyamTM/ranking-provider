@@ -19,6 +19,7 @@ class RegionCoord(BaseModel):
 
 
 class Service(BaseModel):
+    provider_id: str
     service_id: str
     category: str
     name: str

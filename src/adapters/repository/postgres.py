@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 
 import psycopg
 from pgvector.psycopg import register_vector_async
 
-from src.models.service_package import RegionCoord
+from src.models.scoring_package import ServiceDTO
 from src.models import Provider, Service, ServicePackage
 
 
@@ -17,6 +18,27 @@ class PostgresServiceRepository:
         conn = await psycopg.AsyncConnection.connect(self._dsn)
         await register_vector_async(conn)
         return conn
+
+    @staticmethod
+    def _row_to_service_dto(row) -> ServiceDTO:
+        (
+            provider_id, service_id, category, name, description,
+            pricing_model, price_from_rub, price_unit,
+            compliance_tags, tech_tags, score,
+        ) = row
+        return ServiceDTO(
+            provider_id=provider_id,
+            service_id=service_id,
+            category=category,
+            name=name,
+            description=description or "",
+            pricing_model=pricing_model or "",
+            price_from_rub=price_from_rub if price_from_rub is not None else Decimal(0),
+            price_unit=price_unit or "",
+            compliance_tags=compliance_tags or [],
+            tech_tags=tech_tags or [],
+            score=float(score),
+        )
 
     @staticmethod
     async def _upsert_provider(cur: psycopg.AsyncCursor, provider: Provider) -> None:
@@ -107,57 +129,79 @@ class PostgresServiceRepository:
             await self._upsert_service(cur, provider_id, service, embedding)
             await conn.commit()
 
-    async def search_by_embedding(
+    async def search_by_embedding_top_services(
         self,
         query_embedding: list[float],
-        top_k: int = 50,
-    ) -> list[tuple[Service, list[float], list[RegionCoord]]]:
+        top_k: int = 5,
+    ) -> list[ServiceDTO]:
         async with await self._connect() as conn, conn.cursor() as cur:
             await cur.execute(
                 """
                 SELECT
-                    s.service_id, s.category, s.name, s.description,
-                    s.pricing_model, s.price_from_rub, s.price_unit,
-                    s.compliance_tags, s.tech_tags, s.regions, s.region_coords,
-                    s.embedding
+                    s.provider_id,
+                    s.service_id,
+                    s.category,
+                    s.name,
+                    s.description,
+                    s.pricing_model,
+                    s.price_from_rub,
+                    s.price_unit,
+                    s.compliance_tags,
+                    s.tech_tags,
+                    1 - (s.embedding <=> %s::vector) AS similarity
                 FROM services s
-                ORDER BY s.embedding <=> %s::vector
+                ORDER BY s.embedding <=> %s::vector ASC
                 LIMIT %s
                 """,
-                (query_embedding, top_k),
+                (query_embedding, query_embedding, top_k),
             )
             rows = await cur.fetchall()
-            results: list[tuple[Service, list[float], list[RegionCoord]]] = []
-            for row in rows:
-                (
-                    service_id, category, name, description,
-                    pricing_model, price_from_rub, price_unit,
-                    compliance_tags, tech_tags, regions, region_coords_json,
-                    embedding,
-                ) = row
-                
-                region_coords = [
-                    RegionCoord(**rc)
-                    for rc in (
-                        region_coords_json
-                        if isinstance(region_coords_json, list)
-                        else json.loads(region_coords_json) if region_coords_json
-                        else []
-                    )
-                ]
-                
-                service = Service(
-                    service_id=service_id,
-                    category=category,
-                    name=name,
-                    description=description or "",
-                    pricing_model=pricing_model or "",
-                    price_from_rub=price_from_rub or 0,
-                    price_unit=price_unit or "",
-                    compliance_tags=compliance_tags or [],
-                    tech_tags=tech_tags or [],
-                    regions=regions or [],
-                    region_coords=region_coords,
+            return [self._row_to_service_dto(row) for row in rows]
+
+    async def search_by_embedding_all_providers(
+        self,
+        query_embedding: list[float],
+        per_provider: int = 3,
+    ) -> list[ServiceDTO]:
+        async with await self._connect() as conn, conn.cursor() as cur:
+            await cur.execute(
+                """
+                WITH rankings AS (
+                    SELECT
+                        s.provider_id,
+                        s.service_id,
+                        s.category,
+                        s.name,
+                        s.description,
+                        s.pricing_model,
+                        s.price_from_rub,
+                        s.price_unit,
+                        s.compliance_tags,
+                        s.tech_tags,
+                        1 - (s.embedding <=> %s::vector) AS similarity,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY s.provider_id
+                            ORDER BY s.embedding <=> %s::vector ASC
+                        ) AS rn
+                    FROM services s
                 )
-                results.append((service, list(embedding), region_coords))
-            return results
+                SELECT
+                    provider_id,
+                    service_id,
+                    category,
+                    name,
+                    description,
+                    pricing_model,
+                    price_from_rub,
+                    price_unit,
+                    compliance_tags,
+                    tech_tags,
+                    similarity
+                FROM rankings
+                WHERE rn <= %s
+                ORDER BY provider_id, similarity DESC
+                """,
+                (query_embedding, query_embedding, per_provider),
+            )
+            rows = await cur.fetchall()
+            return [self._row_to_service_dto(row) for row in rows]
