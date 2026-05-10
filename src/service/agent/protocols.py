@@ -60,9 +60,9 @@ class LLMClient(Protocol):
 
 @runtime_checkable
 class Geocoder(Protocol):
-    """Преобразование названия локации в координаты."""
+    """Преобразование названия локации в координаты (lat, lon)."""
 
-    async def get_coordinates(self, location_name: str) -> dict[str, float]: ...
+    async def geocode(self, region: str) -> tuple[float, float] | None: ...
 
 
 @runtime_checkable

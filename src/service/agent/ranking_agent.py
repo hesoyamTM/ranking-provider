@@ -109,9 +109,9 @@ class RankingAgent:
         location = str(arguments.get("location_name") or "")
         target_lat, target_lon = 0.0, 0.0
         if location:
-            coords = await self._geocoder.get_coordinates(location)
-            target_lat = float(coords.get("lat", 0.0))
-            target_lon = float(coords.get("lon", 0.0))
+            coords = await self._geocoder.geocode(location)
+            if coords is not None:
+                target_lat, target_lon = coords
 
         return UserQuery(
             clean_intent=str(arguments.get("clean_intent", "")),
