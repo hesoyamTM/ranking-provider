@@ -22,7 +22,7 @@ from src.controller.restapi.v1.ranking.router import get_html_router, get_router
 from src.models import Provider
 from src.service import ChatService, ProviderSyncWorker
 from src.service.agent import RankingAgent
-from src.service.mock_score import MockRelevanceScorer
+from src.service.scorer import ScoringService, ScoringConfig
 
 import psycopg_pool
 
@@ -136,7 +136,7 @@ class Application:
             model=settings.yandex_model,
         )
 
-        self.scorer = MockRelevanceScorer()
+        self.scorer = ScoringService(embedder=self.embedder, repository=self.repository, config=ScoringConfig(), top_k=10)
 
         self.agent = RankingAgent(
             llm=self.llm,
