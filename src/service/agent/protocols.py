@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, AsyncGenerator, Protocol, runtime_checkable
+from typing import AsyncGenerator, Protocol, runtime_checkable
 
 from src.models.agent import LLMResponse, Message, RankedResource
 from src.models.service_package import UserQuery
@@ -17,10 +17,10 @@ class LLMClient(Protocol):
     @property
     def system_prompt(self) -> str: ...
 
-    async def chat(self, messages: list[dict[str, Any]]) -> LLMResponse: ...
+    async def chat(self, messages: list[Message]) -> LLMResponse: ...
 
     def stream_chat(
-        self, messages: list[dict[str, Any]]
+        self, messages: list[Message]
     ) -> AsyncGenerator[str, None]: ...
 
 

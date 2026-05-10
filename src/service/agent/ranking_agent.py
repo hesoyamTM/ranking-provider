@@ -5,7 +5,7 @@ import logging
 import uuid
 from typing import Any, AsyncGenerator
 
-from src.models.agent import Message, RankedResource, ToolCall
+from src.models.agent import Message, MessageToolCall, RankedResource, Role, ToolCall
 from src.models.service_package import UserQuery
 from src.service.agent.protocols import (
     TOOL_ASK_CLARIFICATION,
@@ -67,7 +67,7 @@ class RankingAgent:
         user_id: uuid.UUID,
         user_message: str,
     ) -> AsyncGenerator[str, None]:
-        user_msg: Message = {"role": "user", "content": user_message}
+        user_msg = Message(role=Role.USER, content=user_message)
         await self._chat_repo.append_message(chat_id, user_id, user_msg)
 
         history = await self._chat_repo.get_chat_by_id(chat_id, user_id)
@@ -77,12 +77,12 @@ class RankingAgent:
             chunks.append(chunk)
             yield chunk
 
-        assistant_msg: Message = {"role": "assistant", "content": "".join(chunks)}
+        assistant_msg = Message(role=Role.ASSISTANT, content="".join(chunks))
         await self._chat_repo.append_message(chat_id, user_id, assistant_msg)
 
     async def _stream(self, history: list[Message]) -> AsyncGenerator[str, None]:
         messages: list[Message] = [
-            {"role": "system", "content": self._llm.system_prompt},
+            Message(role=Role.SYSTEM, content=self._llm.system_prompt),
             *history,
         ]
 
@@ -160,26 +160,23 @@ class RankingAgent:
         content: str | None,
         tool_calls: list[ToolCall],
     ) -> Message:
-        return {
-            "role": "assistant",
-            "content": content or "",
-            "tool_calls": [
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.name,
-                        "arguments": json.dumps(tc.arguments, ensure_ascii=False),
-                    },
-                }
+        return Message(
+            role=Role.ASSISTANT,
+            content=content or "",
+            tool_calls=[
+                MessageToolCall(
+                    id=tc.id,
+                    name=tc.name,
+                    arguments=json.dumps(tc.arguments, ensure_ascii=False),
+                )
                 for tc in tool_calls
             ],
-        }
+        )
 
     @staticmethod
     def _tool_result_message(tool_call_id: str, content: str) -> Message:
-        return {
-            "role": "tool",
-            "tool_call_id": tool_call_id,
-            "content": content,
-        }
+        return Message(
+            role=Role.TOOL,
+            content=content,
+            tool_call_id=tool_call_id,
+        )

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
+
+_INDEX_HTML_PATH = Path(__file__).parent / "index.html"
 
 from src.controller.restapi.v1.ranking.dto import (
     ChatCreatedResponse,
@@ -82,7 +85,10 @@ def get_router(chat_service: ChatService, agent: RankingAgent) -> APIRouter:
         history = await chat_service.get_history(chat_id, user_id)
         if history is None:
             raise HTTPException(status_code=404, detail="Chat not found")
-        return ChatHistoryResponse(chat_id=chat_id, messages=history)
+        return ChatHistoryResponse(
+            chat_id=chat_id,
+            messages=[m.to_openai_dict() for m in history],
+        )
 
     @router.post("/{chat_id}/messages")
     async def send_message(
@@ -100,5 +106,16 @@ def get_router(chat_service: ChatService, agent: RankingAgent) -> APIRouter:
 
         stream = agent.send_message(chat_id, user_id, body.text)
         return StreamingResponse(stream, media_type="text/plain")  # type: ignore
+
+    return router
+
+
+def get_html_router() -> APIRouter:
+    """Роутер, отдающий статический HTML-фронтенд по корневому пути."""
+    router = APIRouter(tags=["frontend"])
+
+    @router.get("/", response_class=HTMLResponse)
+    async def index() -> HTMLResponse:
+        return HTMLResponse(content=_INDEX_HTML_PATH.read_text(encoding="utf-8"))
 
     return router

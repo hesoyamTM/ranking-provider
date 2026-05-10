@@ -17,7 +17,7 @@ from src.adapters.providers.t1_local import T1LocalCloudProvider
 from src.adapters.providers.t1_web import T1WebCloudProvider
 from src.adapters.providers.yandex_cloud_web import YandexCloudWebProvider
 from src.adapters.repository import InMemoryChatRepository, PostgresServiceRepository
-from src.controller.restapi.v1.ranking.router import get_router
+from src.controller.restapi.v1.ranking.router import get_html_router, get_router
 from src.models import Provider
 from src.service import ChatService, ProviderSyncWorker
 from src.service.agent import RankingAgent
@@ -150,6 +150,7 @@ class Application:
     def create_fastapi_app(self) -> FastAPI:
         app = FastAPI(title="Provider Ranking Agent")
         app.include_router(get_router(self.chat_service, self.agent), prefix="/api/v1")
+        app.include_router(get_html_router())
         return app
 
     async def run_once(self) -> None:

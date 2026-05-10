@@ -1,7 +1,9 @@
 from typing import Protocol
 
-from typing import Any, AsyncGenerator
+from typing import AsyncGenerator
 import uuid
+
+from src.models.agent import Message
 
 
 class ChatService(Protocol):
@@ -9,7 +11,7 @@ class ChatService(Protocol):
     async def get_chats(self, user_id: uuid.UUID) -> list[uuid.UUID]: ...
     async def get_history(
         self, chat_id: uuid.UUID, user_id: uuid.UUID
-    ) -> list[dict[str, Any]] | None: ...
+    ) -> list[Message] | None: ...
 
 
 class RankingAgent(Protocol):

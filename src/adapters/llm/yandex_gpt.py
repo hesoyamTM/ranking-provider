@@ -5,7 +5,7 @@ from typing import Any, AsyncGenerator, ClassVar
 
 from openai import AsyncOpenAI
 
-from src.models.agent import LLMResponse, ToolCall
+from src.models.agent import LLMResponse, Message, ToolCall
 from src.service.agent.protocols import (
     TOOL_ASK_CLARIFICATION as _TOOL_ASK_CLARIFICATION,
     TOOL_RANK_SERVICES as _TOOL_RANK_SERVICES,
@@ -104,10 +104,10 @@ class YandexGPTAdapter:
     def system_prompt(self) -> str:
         return self.SYSTEM_PROMPT
 
-    async def chat(self, messages: list[dict[str, Any]]) -> LLMResponse:
+    async def chat(self, messages: list[Message]) -> LLMResponse:
         response = await self._client.chat.completions.create(
             model=self._model,
-            messages=messages,
+            messages=[m.to_openai_dict() for m in messages],
             tools=self.TOOLS,
             temperature=self._temperature,
         )
@@ -128,16 +128,18 @@ class YandexGPTAdapter:
         return LLMResponse(content=message.content, tool_calls=tool_calls)
 
     async def stream_chat(
-        self, messages: list[dict[str, Any]]
+        self, messages: list[Message]
     ) -> AsyncGenerator[str, None]:
         """Финальный стриминговый ответ без инструментов."""
         stream = await self._client.chat.completions.create(
             model=self._model,
-            messages=messages,
+            messages=[m.to_openai_dict() for m in messages],
             temperature=self._temperature,
             stream=True,
         )
         async for chunk in stream:
+            if not chunk.choices:
+                continue
             delta = chunk.choices[0].delta
             if delta.content:
                 yield delta.content
