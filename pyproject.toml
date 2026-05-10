@@ -15,6 +15,8 @@ dependencies = [
     "pgvector>=0.3",
     "python-dotenv>=1.0",
     "pypdf>=4.0",
+    "fastapi>=0.136.1",
+    "uvicorn>=0.30",
 ]
 
 [tool.setuptools.packages.find]

@@ -2,19 +2,18 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from typing import Any, AsyncGenerator
 
-from src.models import Service
+from src.models.agent import Message, MessageToolCall, RankedResource, Role, ToolCall
 from src.models.service_package import UserQuery
 from src.service.agent.protocols import (
     TOOL_ASK_CLARIFICATION,
     TOOL_RANK_SERVICES,
+    ChatRepository,
     Geocoder,
     LLMClient,
-    Message,
-    RankedResource,
     RelevanceScorer,
-    ToolCall,
 )
 
 logger = logging.getLogger(__name__)
@@ -23,23 +22,20 @@ logger = logging.getLogger(__name__)
 class RankingAgent:
     """Агент с циклом вызова инструментов.
 
-    Принимает историю диалога и кандидатов для ранжирования.
-    Возвращает async-генератор чанков ответа.
+    История диалога хранится в ChatRepository и загружается по chat_id/user_id.
+    При каждом вызове run пользовательское сообщение и итоговый ответ ассистента
+    автоматически сохраняются в репозиторий.
 
-    Многошаговый диалог на стороне caller:
+    Пример использования:
 
-        history = [{"role": "user", "content": "Нужен VDS"}]
+        chat_id, user_id = await chat_repo.create_chat()
 
         # Шаг 1
-        async for chunk in await agent.run(history, candidates):
+        async for chunk in agent.run(chat_id, user_id, "Нужен VDS"):
             print(chunk)  # "Уточните: какой у вас бюджет?"
 
-        # Пользователь ответил — caller добавляет оба сообщения в историю
-        history.append({"role": "assistant", "content": question})
-        history.append({"role": "user", "content": "До 5000 рублей"})
-
-        # Шаг 2
-        async for chunk in await agent.run(history, candidates):
+        # Шаг 2 — история подтягивается из репозитория автоматически
+        async for chunk in agent.run(chat_id, user_id, "До 5000 рублей"):
             print(chunk)  # стриминг результата ранжирования
     """
 
@@ -50,20 +46,43 @@ class RankingAgent:
         llm: LLMClient,
         geocoder: Geocoder,
         scorer: RelevanceScorer,
+        chat_repo: ChatRepository,
     ) -> None:
         self._llm = llm
         self._geocoder = geocoder
         self._scorer = scorer
+        self._chat_repo = chat_repo
 
-    async def run(
+    def send_message(
         self,
-        history: list[Message],
+        chat_id: uuid.UUID,
+        user_id: uuid.UUID,
+        user_message: str,
     ) -> AsyncGenerator[str, None]:
-        return self._stream(history)
+        return self._stream_and_save(chat_id, user_id, user_message)
+
+    async def _stream_and_save(
+        self,
+        chat_id: uuid.UUID,
+        user_id: uuid.UUID,
+        user_message: str,
+    ) -> AsyncGenerator[str, None]:
+        user_msg = Message(role=Role.USER, content=user_message)
+        await self._chat_repo.append_message(chat_id, user_id, user_msg)
+
+        history = await self._chat_repo.get_chat_by_id(chat_id, user_id)
+
+        chunks: list[str] = []
+        async for chunk in self._stream(history):
+            chunks.append(chunk)
+            yield chunk
+
+        assistant_msg = Message(role=Role.ASSISTANT, content="".join(chunks))
+        await self._chat_repo.append_message(chat_id, user_id, assistant_msg)
 
     async def _stream(self, history: list[Message]) -> AsyncGenerator[str, None]:
         messages: list[Message] = [
-            {"role": "system", "content": self._llm.system_prompt},
+            Message(role=Role.SYSTEM, content=self._llm.system_prompt),
             *history,
         ]
 
@@ -141,26 +160,23 @@ class RankingAgent:
         content: str | None,
         tool_calls: list[ToolCall],
     ) -> Message:
-        return {
-            "role": "assistant",
-            "content": content or "",
-            "tool_calls": [
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.name,
-                        "arguments": json.dumps(tc.arguments, ensure_ascii=False),
-                    },
-                }
+        return Message(
+            role=Role.ASSISTANT,
+            content=content or "",
+            tool_calls=[
+                MessageToolCall(
+                    id=tc.id,
+                    name=tc.name,
+                    arguments=json.dumps(tc.arguments, ensure_ascii=False),
+                )
                 for tc in tool_calls
             ],
-        }
+        )
 
     @staticmethod
     def _tool_result_message(tool_call_id: str, content: str) -> Message:
-        return {
-            "role": "tool",
-            "tool_call_id": tool_call_id,
-            "content": content,
-        }
+        return Message(
+            role=Role.TOOL,
+            content=content,
+            tool_call_id=tool_call_id,
+        )

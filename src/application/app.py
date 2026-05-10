@@ -2,70 +2,31 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
-from dataclasses import dataclass
-from pathlib import Path
 
+import uvicorn
+from fastapi import FastAPI
 from openai import AsyncOpenAI
 from yoyo import get_backend, read_migrations
 
 from src.adapters.embedding import SentenceTransformerEmbedder
 from src.adapters.geocoding import NominatimGeocoder
+from src.adapters.llm import YandexGPTAdapter
 from src.adapters.providers.cloudru_web import CloudRuWebProvider
 from src.adapters.providers.selectel_web import SelectelWebProvider
 from src.adapters.providers.t1_local import T1LocalCloudProvider
 from src.adapters.providers.t1_web import T1WebCloudProvider
 from src.adapters.providers.yandex_cloud_web import YandexCloudWebProvider
-from src.adapters.repository import PostgresServiceRepository
+from src.adapters.repository import InMemoryChatRepository, PostgresServiceRepository
+from src.controller.restapi.v1.ranking.router import get_html_router, get_router
 from src.models import Provider
-from src.service import ProviderSyncWorker
+from src.service import ChatService, ProviderSyncWorker
+from src.service.agent import RankingAgent
+from src.service.mock_score import MockRelevanceScorer
+
+from src.config.config import Settings
+
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Settings:
-    postgres_dsn: str
-    yandex_api_key: str
-    yandex_model: str
-    yandex_base_url: str
-    data_dir: Path
-    migrations_dir: Path
-    sync_interval_seconds: float
-    embedding_model: str
-    use_t1_local_provider: bool
-    use_t1_web_provider: bool
-    use_cloudru_provider: bool
-    use_yandex_cloud_provider: bool
-    use_selectel_provider: bool
-
-    @classmethod
-    def from_env(cls) -> "Settings":
-        folder_id = os.environ.get("YANDEX_FOLDER_ID", "")
-        model_name = os.environ.get("YANDEX_MODEL", "yandexgpt-5/latest")
-        model = f"gpt://{folder_id}/{model_name}" if folder_id else model_name
-        return cls(
-            postgres_dsn=os.environ.get(
-                "POSTGRES_DSN",
-                "postgresql://postgres:postgres@localhost:5432/provider_ranking",
-            ),
-            yandex_api_key=os.environ.get("YANDEX_API_KEY", ""),
-            yandex_model=model,
-            yandex_base_url=os.environ.get(
-                "YANDEX_BASE_URL", "https://llm.api.cloud.yandex.net/v1"
-            ),
-            data_dir=Path(os.environ.get("T1_DATA_DIR", "data/t1")).resolve(),
-            migrations_dir=Path(os.environ.get("MIGRATIONS_DIR", "migration")).resolve(),
-            sync_interval_seconds=float(os.environ.get("SYNC_INTERVAL_SECONDS", "3600")),
-            embedding_model=os.environ.get(
-                "EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
-            ),
-            use_t1_local_provider=os.environ.get("T1_LOCAL_PROVIDER", "false").lower() == "true",
-            use_t1_web_provider=os.environ.get("T1_WEB_PROVIDER", "false").lower() == "true",
-            use_cloudru_provider=os.environ.get("CLOUDRU_WEB_PROVIDER", "false").lower() == "true",
-            use_yandex_cloud_provider=os.environ.get("YANDEX_CLOUD_WEB_PROVIDER", "false").lower() == "true",
-            use_selectel_provider=os.environ.get("SELECTEL_WEB_PROVIDER", "false").lower() == "true",
-        )
 
 
 class Application:
@@ -87,55 +48,85 @@ class Application:
         providers = []
 
         if settings.use_t1_local_provider:
-            providers.append(T1LocalCloudProvider(
-                data_dir=settings.data_dir,
-                client=self.openai_client,
-                model=settings.yandex_model,
-                provider_defaults=_t1_provider_defaults,
-            ))
+            providers.append(
+                T1LocalCloudProvider(
+                    data_dir=settings.data_dir,
+                    client=self.openai_client,
+                    model=settings.yandex_model,
+                    provider_defaults=_t1_provider_defaults,
+                )
+            )
 
         if settings.use_t1_web_provider:
-            providers.append(T1WebCloudProvider(
-                client=self.openai_client,
-                model=settings.yandex_model,
-                provider_defaults=_t1_provider_defaults,
-            ))
+            providers.append(
+                T1WebCloudProvider(
+                    client=self.openai_client,
+                    model=settings.yandex_model,
+                    provider_defaults=_t1_provider_defaults,
+                )
+            )
 
         if settings.use_cloudru_provider:
-            providers.append(CloudRuWebProvider(
-                client=self.openai_client,
-                model=settings.yandex_model,
-                provider_defaults=Provider(
-                    provider_id="cloud-ru",
-                    name="Cloud.ru",
-                    base_platform="Evolution",
-                    regions=["Москва"],
-                ),
-            ))
+            providers.append(
+                CloudRuWebProvider(
+                    client=self.openai_client,
+                    model=settings.yandex_model,
+                    provider_defaults=Provider(
+                        provider_id="cloud-ru",
+                        name="Cloud.ru",
+                        base_platform="Evolution",
+                        regions=["Москва"],
+                    ),
+                )
+            )
 
         if settings.use_yandex_cloud_provider:
-            providers.append(YandexCloudWebProvider(
-                provider_defaults=Provider(
-                    provider_id="yandex-cloud",
-                    name="Yandex Cloud",
-                    base_platform="Yandex Cloud",
-                    regions=["Москва"],
-                ),
-            ))
+            providers.append(
+                YandexCloudWebProvider(
+                    provider_defaults=Provider(
+                        provider_id="yandex-cloud",
+                        name="Yandex Cloud",
+                        base_platform="Yandex Cloud",
+                        regions=["Москва"],
+                    ),
+                )
+            )
 
         if settings.use_selectel_provider:
-            providers.append(SelectelWebProvider(
-                provider_defaults=Provider(
-                    provider_id="selectel",
-                    name="Selectel",
-                    base_platform="Selectel",
-                    regions=["Москва", "Санкт-Петербург"],
-                ),
-            ))
+            providers.append(
+                SelectelWebProvider(
+                    provider_defaults=Provider(
+                        provider_id="selectel",
+                        name="Selectel",
+                        base_platform="Selectel",
+                        regions=["Москва", "Санкт-Петербург"],
+                    ),
+                )
+            )
 
         self.embedder = SentenceTransformerEmbedder(model_name=settings.embedding_model)
         self.repository = PostgresServiceRepository(dsn=settings.postgres_dsn)
+        self.chat_repo = InMemoryChatRepository()
         self.geocoder = NominatimGeocoder()
+
+        self.llm = YandexGPTAdapter(
+            client=self.openai_client,
+            model=settings.yandex_model,
+        )
+
+        self.scorer = MockRelevanceScorer()
+
+        self.agent = RankingAgent(
+            llm=self.llm,
+            geocoder=self.geocoder,
+            scorer=self.scorer,
+            chat_repo=self.chat_repo,
+        )
+
+        self.chat_service = ChatService(
+            chat_repo=self.chat_repo,
+            agent=self.agent,
+        )
 
         self.worker = ProviderSyncWorker(
             providers=providers,
@@ -156,11 +147,29 @@ class Application:
         with backend.lock():
             backend.apply_migrations(backend.to_apply(migrations))
 
+    def create_fastapi_app(self) -> FastAPI:
+        app = FastAPI(title="Provider Ranking Agent")
+        app.include_router(get_router(self.chat_service, self.agent), prefix="/api/v1")
+        app.include_router(get_html_router())
+        return app
+
     async def run_once(self) -> None:
         await self.worker.run_once()
 
     async def run_forever(self) -> None:
-        await self.worker.run_forever()
+        fastapi_app = self.create_fastapi_app()
+        config = uvicorn.Config(
+            app=fastapi_app,
+            host=self.settings.host,
+            port=self.settings.port,
+            log_level="info",
+        )
+        server = uvicorn.Server(config)
+
+        await asyncio.gather(
+            server.serve(),
+            self.worker.run_forever(),
+        )
 
 
 def build_application(settings: Settings | None = None) -> Application:
