@@ -9,6 +9,7 @@ from src.service.repository import ServiceRepository
 
 # --- 1. Конфигурации и структуры ответа ---
 
+
 @dataclass(frozen=True, slots=True)
 class ScoringConfig:
     semantic_weight: float = 0.5
@@ -16,22 +17,27 @@ class ScoringConfig:
     tag_weight: float = 0.2
     sigma_km: float = 500.0
 
+
 @dataclass(frozen=True, slots=True)
 class ScoreComponents:
     semantic: float
     proximity: float
     tags: float
 
+
 @dataclass(frozen=True, slots=True)
 class ScoredService:
     """Финальный результат скоринга с разбивкой по компонентам."""
+
     service: Service
     final_score: float
     components: ScoreComponents
 
+
 @dataclass(slots=True)
 class _ScoredCandidate:
     """Внутренняя DTO для промежуточного хранения данных кандидата."""
+
     service: Service
     embedding: Tuple[float, ...]
     lat: float
@@ -41,10 +47,12 @@ class _ScoredCandidate:
 
 # --- 2. Основной сервисный класс ---
 
+
 class ScoringService:
     """
     Сервис ранжирования: получение эмбеддинга → поиск в БД (pgvector) → гибридный скоринг.
     """
+
     _DEFAULT_TOP_K = 50
 
     def __init__(
@@ -62,7 +70,9 @@ class ScoringService:
     # --- Математика и алгоритмы скоринга ---
 
     @staticmethod
-    def _haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    def _haversine_distance(
+        lat1: float, lon1: float, lat2: float, lon2: float
+    ) -> float:
         """Вычисляет расстояние между двумя координатами на сфере."""
         radius_km = 6371.0
         lat1_rad, lon1_rad = math.radians(lat1), math.radians(lon1)
@@ -79,7 +89,9 @@ class ScoringService:
         return radius_km * c
 
     @staticmethod
-    def _semantic_score(query_embedding: Tuple[float, ...], svc_embedding: Tuple[float, ...]) -> float:
+    def _semantic_score(
+        query_embedding: Tuple[float, ...], svc_embedding: Tuple[float, ...]
+    ) -> float:
         """Косинусное сходство через скалярное произведение, нормализованное к [0, 1]."""
         dot = sum(q * s for q, s in zip(query_embedding, svc_embedding))
         return (dot + 1) / 2
@@ -138,7 +150,7 @@ class ScoringService:
         target_lon = query.target_lon
         required_tags = tuple(query.required_tags)
 
-        no_location = (target_lat == 0.0 and target_lon == 0.0)
+        no_location = target_lat == 0.0 and target_lon == 0.0
         results: List[ScoredService] = []
 
         for cand in candidates:
@@ -149,23 +161,25 @@ class ScoringService:
             if no_location:
                 prox = 1.0
             else:
-                dist = self._haversine_distance(target_lat, target_lon, cand.lat, cand.lon)
+                dist = self._haversine_distance(
+                    target_lat, target_lon, cand.lat, cand.lon
+                )
                 prox = self._proximity_score(dist, self._config.sigma_km)
 
             # 3. Теги
             tag = self._tag_score(required_tags, cand.tags)
 
             # 4. Взвешенная сумма
-            final_score = (
+            final_score = float(
                 self._config.semantic_weight * sem
                 + self._config.proximity_weight * prox
                 + self._config.tag_weight * tag
             )
 
             components = ScoreComponents(
-                semantic=round(sem, 4),
-                proximity=round(prox, 4),
-                tags=round(tag, 4),
+                semantic=round(float(sem), 4),
+                proximity=round(float(prox), 4),
+                tags=round(float(tag), 4),
             )
 
             results.append(
@@ -202,15 +216,6 @@ class ScoringService:
         # 4. Проводим детальный скоринг
         scored = self._score_candidates(query, query_embedding, candidates)
 
-
         scored.sort(key=lambda x: x.final_score, reverse=True)
 
         return scored
-
-    async def rank_marketplace_resources(self, query: UserQuery) -> list:
-        from src.models.agent import RankedResource
-        scored = await self.rank(query)
-        return [
-            RankedResource(service=s.service, score=s.final_score, rank=i + 1)
-            for i, s in enumerate(scored)
-        ]

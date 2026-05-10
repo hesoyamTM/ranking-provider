@@ -1,6 +1,7 @@
 from src.models.agent import LLMResponse, Message, RankedResource, ScoringWeights, ToolCall
 from src.service.agent.protocols import (
     TOOL_ASK_CLARIFICATION,
+    TOOL_PLAN_SYSTEM,
     TOOL_RANK_SERVICES,
     ChatRepository,
     Geocoder,
@@ -20,6 +21,7 @@ __all__ = [
     "RelevanceScorer",
     "ScoringWeights",
     "TOOL_ASK_CLARIFICATION",
+    "TOOL_PLAN_SYSTEM",
     "TOOL_RANK_SERVICES",
     "ToolCall",
 ]

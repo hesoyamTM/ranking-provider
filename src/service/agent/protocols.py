@@ -3,11 +3,13 @@ from __future__ import annotations
 import uuid
 from typing import AsyncGenerator, Protocol, runtime_checkable
 
-from src.models.agent import LLMResponse, Message, RankedResource
+from src.models.agent import LLMResponse, Message
+from src.service.scorer import ScoredService
 from src.models.service_package import UserQuery
 
 TOOL_ASK_CLARIFICATION = "ask_clarification"
 TOOL_RANK_SERVICES = "rank_services"
+TOOL_PLAN_SYSTEM = "plan_system"
 
 
 @runtime_checkable
@@ -19,9 +21,7 @@ class LLMClient(Protocol):
 
     async def chat(self, messages: list[Message]) -> LLMResponse: ...
 
-    def stream_chat(
-        self, messages: list[Message]
-    ) -> AsyncGenerator[str, None]: ...
+    def stream_chat(self, messages: list[Message]) -> AsyncGenerator[str, None]: ...
 
 
 @runtime_checkable
@@ -33,10 +33,10 @@ class Geocoder(Protocol):
 
 @runtime_checkable
 class RelevanceScorer(Protocol):
-    async def rank_marketplace_resources(
+    async def rank(
         self,
         query: UserQuery,
-    ) -> list[RankedResource]: ...
+    ) -> list[ScoredService]: ...
 
 
 @runtime_checkable
