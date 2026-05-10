@@ -16,12 +16,14 @@ from src.adapters.providers.selectel_web import SelectelWebProvider
 from src.adapters.providers.t1_local import T1LocalCloudProvider
 from src.adapters.providers.t1_web import T1WebCloudProvider
 from src.adapters.providers.yandex_cloud_web import YandexCloudWebProvider
-from src.adapters.repository import InMemoryChatRepository, PostgresServiceRepository
+from src.adapters.repository import PostgresChatRepository, PostgresServiceRepository
 from src.controller.restapi.v1.ranking.router import get_html_router, get_router
 from src.models import Provider
 from src.service import ChatService, ProviderSyncWorker
 from src.service.agent import RankingAgent
 from src.service.mock_score import MockRelevanceScorer
+
+import psycopg_pool
 
 from src.config.config import Settings
 
@@ -104,9 +106,17 @@ class Application:
                 )
             )
 
+        pool = psycopg_pool.AsyncConnectionPool(
+            settings.postgres_dsn,
+            min_size=1,
+            max_size=10,
+            open=False,
+        )
+        self.pool = pool
+
         self.embedder = SentenceTransformerEmbedder(model_name=settings.embedding_model)
         self.repository = PostgresServiceRepository(dsn=settings.postgres_dsn)
-        self.chat_repo = InMemoryChatRepository()
+        self.chat_repo = PostgresChatRepository(pool=pool)  # type: ignore
         self.geocoder = NominatimGeocoder()
 
         self.llm = YandexGPTAdapter(
@@ -154,9 +164,14 @@ class Application:
         return app
 
     async def run_once(self) -> None:
-        await self.worker.run_once()
+        await self.pool.open()
+        try:
+            await self.worker.run_once()
+        finally:
+            await self.pool.close()
 
     async def run_forever(self) -> None:
+        await self.pool.open()
         fastapi_app = self.create_fastapi_app()
         config = uvicorn.Config(
             app=fastapi_app,
@@ -166,10 +181,13 @@ class Application:
         )
         server = uvicorn.Server(config)
 
-        await asyncio.gather(
-            server.serve(),
-            self.worker.run_forever(),
-        )
+        try:
+            await asyncio.gather(
+                server.serve(),
+                self.worker.run_forever(),
+            )
+        finally:
+            await self.pool.close()
 
 
 def build_application(settings: Settings | None = None) -> Application:
