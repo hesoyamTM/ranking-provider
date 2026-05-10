@@ -35,3 +35,12 @@ class Service(BaseModel):
 class ServicePackage(BaseModel):
     provider: Provider
     services: list[Service]
+
+
+class UserQuery(BaseModel):
+    clean_intent: str
+    required_tags: list[str] = Field(default_factory=list)
+    max_budget: float | None = None
+    location_name: str = ""
+    target_lat: float = 0.0
+    target_lon: float = 0.0

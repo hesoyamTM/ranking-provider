@@ -1,100 +1,166 @@
-import json
+from __future__ import annotations
 
-import httpx
-from src.application.app import Settings
+import json
+import logging
+from typing import Any, AsyncGenerator
+
+from src.models import Service
 from src.models.service_package import UserQuery
+from src.service.agent.protocols import (
+    TOOL_ASK_CLARIFICATION,
+    TOOL_RANK_SERVICES,
+    Geocoder,
+    LLMClient,
+    Message,
+    RankedResource,
+    RelevanceScorer,
+    ToolCall,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class RankingAgent:
-    def __init__(self, settings: Settings, scorer=None, geo_service=None):
-        self.settings = settings
-        self.scorer = scorer
-        self.geo_service = geo_service
+    """Агент с циклом вызова инструментов.
 
-    async def get_response(self, user_text: str, candidates: list) -> str:
-        extraction_result = await self._process_step(user_text)
+    Принимает историю диалога и кандидатов для ранжирования.
+    Возвращает async-генератор чанков ответа.
 
-        if "question" in extraction_result:
-            return extraction_result["question"]
+    Многошаговый диалог на стороне caller:
 
-        data = extraction_result["data"]
+        history = [{"role": "user", "content": "Нужен VDS"}]
 
-        if data.get("location_name"):
-            coords = await self.geo_service.get_coordinates(data["location_name"])
-            data["target_lat"] = coords.get("lat", 0.0)
-            data["target_lon"] = coords.get("lon", 0.0)
-        else:
-            data["target_lat"] = 0.0
-            data["target_lon"] = 0.0
+        # Шаг 1
+        async for chunk in await agent.run(history, candidates):
+            print(chunk)  # "Уточните: какой у вас бюджет?"
 
-        query_obj = UserQuery(**data)
+        # Пользователь ответил — caller добавляет оба сообщения в историю
+        history.append({"role": "assistant", "content": question})
+        history.append({"role": "user", "content": "До 5000 рублей"})
 
-        """
-        !!!
-        """
+        # Шаг 2
+        async for chunk in await agent.run(history, candidates):
+            print(chunk)  # стриминг результата ранжирования
+    """
 
-        ranked_list = self.scorer.rank_marketplace_resources(
-            query=query_obj,
-            candidates=candidates
+    _MAX_ITERATIONS = 4
+
+    def __init__(
+        self,
+        llm: LLMClient,
+        geocoder: Geocoder,
+        scorer: RelevanceScorer,
+    ) -> None:
+        self._llm = llm
+        self._geocoder = geocoder
+        self._scorer = scorer
+
+    async def run(
+        self,
+        history: list[Message],
+    ) -> AsyncGenerator[str, None]:
+        return self._stream(history)
+
+    async def _stream(self, history: list[Message]) -> AsyncGenerator[str, None]:
+        messages: list[Message] = [
+            {"role": "system", "content": self._llm.system_prompt},
+            *history,
+        ]
+
+        for _ in range(self._MAX_ITERATIONS):
+            response = await self._llm.chat(messages)
+
+            if not response.tool_calls:
+                yield response.content or ""
+                return
+
+            messages.append(
+                self._assistant_message(response.content, response.tool_calls)
+            )
+
+            for tool_call in response.tool_calls:
+                if tool_call.name == TOOL_ASK_CLARIFICATION:
+                    yield str(tool_call.arguments.get("question", ""))
+                    return
+
+                if tool_call.name == TOOL_RANK_SERVICES:
+                    ranked = await self._rank(tool_call.arguments)
+                    messages.append(
+                        self._tool_result_message(
+                            tool_call.id, self._format_ranked(ranked)
+                        )
+                    )
+                    async for chunk in self._llm.stream_chat(messages):
+                        yield chunk
+                    return
+
+                logger.warning("Unknown tool call: %s", tool_call.name)
+
+        yield "Не удалось завершить обработку запроса."
+
+    async def _rank(
+        self,
+        arguments: dict[str, Any],
+    ) -> list[RankedResource]:
+        query = await self._build_query(arguments)
+        return self._scorer.rank_marketplace_resources(query=query)
+
+    async def _build_query(self, arguments: dict[str, Any]) -> UserQuery:
+        location = str(arguments.get("location_name") or "")
+        target_lat, target_lon = 0.0, 0.0
+        if location:
+            coords = await self._geocoder.get_coordinates(location)
+            target_lat = float(coords.get("lat", 0.0))
+            target_lon = float(coords.get("lon", 0.0))
+
+        return UserQuery(
+            clean_intent=str(arguments.get("clean_intent", "")),
+            required_tags=list(arguments.get("required_tags") or []),
+            max_budget=arguments.get("max_budget"),
+            location_name=location,
+            target_lat=target_lat,
+            target_lon=target_lon,
         )
 
-        return query_obj
+    @staticmethod
+    def _format_ranked(resources: list[RankedResource]) -> str:
+        if not resources:
+            return "Подходящих услуг не найдено."
+        lines = ["Ранжированный список услуг провайдера:"]
+        for res in resources:
+            svc = res.service
+            lines.append(
+                f"{res.rank}. {svc.name} ({svc.category}) — "
+                f"от {svc.price_from_rub} руб. ({svc.pricing_model}). "
+                f"{svc.description}"
+            )
+        return "\n".join(lines)
 
-
-    async def _process_step(self, user_text: str) -> dict:
-        url = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
-
-        system_prompt = """
-        Ты — аналитик данных в облачном провайдере. Твоя цель — извлечь параметры запроса в строгий JSON формат.
-
-        ПРАВИЛА ИЗВЛЕЧЕНИЯ:
-        1. clean_intent: Краткая суть (например, "VDS для VPN").
-        2. required_tags: Список технологий (например, ["python", "docker"]).
-        3. location_name: Город или регион.
-        4. max_budget: Число в РУБЛЯХ. 
-           - Если пользователь указал доллары ($), конвертируй в рубли по курсу 100 (для стабильности теста).
-           - Если бюджет "неважно "или "любой" — null.
-           - Если город или регион "неважно "или "любой" — null.
-        
-        ФОРМАТ ОТВЕТА:
-        - Если данных критически мало (непонятно, что нужно, не хватает), верни: 
-          {"question": "Текст вежливого уточняющего вопроса"}
-        - Если данных достаточно, верни:
-          {
-            "data": {
-              "clean_intent": str,
-              "required_tags": list,
-              "max_budget": float,
-              "location_name": str,
-              "target_lat": float,
-              "target_lon": float
-            }
-          }
-        
-        Запрещено добавлять лишний текст, только чистый JSON.
-        """
-
-        payload = {
-            "modelUri": f"gpt://{self.settings.folder_id}/yandexgpt/latest",
-            "completionOptions": {"stream": False, "temperature": 0.1},
-            "messages": [
-                {"role": "system", "text": system_prompt},
-                {"role": "user", "text": user_text}
-            ]
+    @staticmethod
+    def _assistant_message(
+        content: str | None,
+        tool_calls: list[ToolCall],
+    ) -> Message:
+        return {
+            "role": "assistant",
+            "content": content or "",
+            "tool_calls": [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.name,
+                        "arguments": json.dumps(tc.arguments, ensure_ascii=False),
+                    },
+                }
+                for tc in tool_calls
+            ],
         }
 
-        headers = {
-            "Authorization": f"Api-Key {self.settings.yandex_api_key}",
-            "x-folder-id": self.settings.folder_id,
-            "Content-Type": "application/json"
+    @staticmethod
+    def _tool_result_message(tool_call_id: str, content: str) -> Message:
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call_id,
+            "content": content,
         }
-
-        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, read=30.0)) as client:
-            response = await client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-
-            res_data = response.json()
-            raw_text = res_data['result']['alternatives'][0]['message']['text']
-
-            clean_text = raw_text.strip().replace("```json", "").replace("```", "").strip()
-            return json.loads(clean_text)
