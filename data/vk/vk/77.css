@@ -1,0 +1,878 @@
+.BasicFieldError__message--DdTZo {
+    border: none;
+    box-shadow: none;
+    background: none;
+    color: var(--AuthFormRed);
+    padding: 1px 0;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.LinedBasicFieldError__error--aMbgx {
+    padding-top: 12px;
+}
+
+.LinedBasicFieldError__showErrorLine--sMqSk {
+    display: block;
+    margin-left: 12px;
+    animation: LinedBasicFieldError__increased--saTBe 0.3s ease-in;
+}
+
+.LinedBasicFieldError__showErrorMessage--LVP1v {
+    display: block;
+    animation: LinedBasicFieldError__appear--WFOIK 0.6s ease-out;
+}
+
+@keyframes LinedBasicFieldError__increased--saTBe {
+    0% {
+        display: none;
+        max-height: 0;
+    }
+
+    1% {
+        display: block;
+        max-height: 0;
+    }
+
+    100% {
+        display: block;
+        max-height: 200px;
+    }
+}
+
+@keyframes LinedBasicFieldError__appear--WFOIK {
+    0% {
+        display: none;
+        opacity: 0;
+    }
+
+    50% {
+        display: block;
+        opacity: 0;
+    }
+
+    100% {
+        display: block;
+        opacity: 1;
+    }
+}
+
+.BasicField__root--LwD03 {
+    width: 100%;
+}
+
+.BasicField__bottomContainer--QBXTF {
+    min-height: 25px;
+    padding-bottom: 5px;
+    box-sizing: border-box;
+}
+
+.BasicField__disabled--OHH0U .BasicField__label--JjLcI {
+    opacity: 0.5;
+}
+
+.BasicField__labelContainer--rTb1c {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    justify-content: space-between;
+}
+
+.BasicField__labelInfoTooltip--Ifvp5 {
+    display: flex;
+    margin-left: 7px;
+    flex: 1;
+    line-height: 20px;
+    color: var(--AuthFormSecondaryText);
+    cursor: pointer;
+}
+
+.BasicField__label--JjLcI {
+    width: auto;
+    box-sizing: border-box;
+    font-weight: 400;
+    line-height: 20px;
+    font-size: 14px;
+    color: var(--AuthFormSecondaryText);
+    flex: 0 1 auto;
+}
+
+.BasicField__spinnerContainer--OEZiT {
+    line-height: 20px;
+}
+
+.BasicField__hint--ASJKp {
+    font-size: 13px;
+    color: var(--AuthFormSecondaryText);
+    margin-top: 5px;
+}
+
+.theme-mcs-journal .BasicField__hint--ASJKp {
+    color: currentColor;
+}
+
+.BasicField__fieldDescription--mJFh8 {
+    margin-left: 10px;
+}
+
+.AuthFormHeader__header--KNemN {
+    display: flex;
+    align-items: center;
+    font-size: 20px;
+    line-height: 23px;
+}
+
+.AuthFormHeader__headerDivider--KLIm5 {
+    width: 1px;
+    height: 32px;
+    background: var(--AuthFormDividerGrey);
+    margin: 0 16px;
+}
+
+.AuthFormHeader__headerTitle--TtS6a {
+    font-size: 24px;
+    line-height: 23px;
+    font-weight: 500;
+    min-width: 100px;
+}
+
+.AuthFormHeader__select--qUdAk {
+    float: right;
+    min-width: unset !important;
+}
+
+.AuthFormHeader__select--qUdAk .ui-toolkit-select-selection-item {
+        padding-inline-end: 0;
+        padding-right: 0;
+    }
+
+.FieldCaptcha__root--ss0Ig {
+    display: flex;
+}
+
+.FieldCaptcha__leftPart--I2nWI {
+    flex: 1 1 auto;
+}
+
+.FieldCaptcha__rightPart--pm7kN {
+    display: flex;
+    justify-content: center;
+    flex: 0 0 auto;
+    margin-left: 10px;
+}
+
+.FieldCaptcha__rightPart--pm7kN,
+.FieldCaptcha__img--gzrsm {
+    width: 160px;
+}
+
+.FieldCaptcha__loader--o4CTD {
+    top: 12px !important;
+}
+
+.FieldCaptcha__error--RWaO4 {
+    font-size: 13px;
+    color: var(--AuthFormRed);
+}
+
+.FieldCaptcha__refreshButton--D8Cnp {
+    margin-top: 10px;
+}
+
+.FieldCommonErrorMessages__root--_Fdrf .ui-toolkit-alert-message-body {
+        margin-top: 0;
+    }
+    .FieldCommonErrorMessages__root--_Fdrf .ui-toolkit-alert-message-title + .ui-toolkit-alert-message-body {
+        margin-top: 8px;
+    }
+
+.theme-mcs-journal .InlineDialog__root--eroYb {
+        width: auto;
+        background: none;
+        border-radius: 0;
+    }
+    .theme-mcs-journal .InlineDialog__header--J3ZOc,
+    .theme-mcs-journal .InlineDialog__body--JJYK5,
+    .theme-mcs-journal .InlineDialog__footer--dGFQb {
+        padding: 0;
+    }
+    .theme-mcs-journal .InlineDialog__header--J3ZOc {
+        display: none;
+    }
+    .theme-mcs-journal .InlineDialog__body--JJYK5,
+    .theme-mcs-journal .InlineDialog__footer--dGFQb {
+        display: block;
+    }
+    .theme-mcs-journal .InlineDialog__footer--dGFQb {
+        text-align: center;
+        border-top: none;
+        margin-top: 20px;
+    }
+    .theme-mcs-journal .InlineDialog__smallCaption--QZdxe {
+        text-align: left;
+        margin-top: 20px;
+    }
+    .theme-mcs-journal .InlineDialog__footerSmallCaption--V3Lvn {
+        color: currentColor;
+    }
+
+.body_theme_megafon .InlineDialog__footer--dGFQb {
+        border-top: 0;
+    }
+
+.ui-toolkit-alert-message-text, .ui-toolkit-alert-message {
+    overflow: hidden;
+}
+
+
+.InlineDialog__root--eroYb {
+    width: 100%;
+    background-color: var(--AuthFormWhite);
+    border-radius: 20px;
+    position: relative;
+}
+
+.InlineDialog__formWrapper--Vnalt {
+    max-width: 500px;
+    width: 100%;
+}
+
+.InlineDialog__header--J3ZOc {
+    padding: 20px 20px 0;
+    display: block;
+}
+
+@media (min-width: 768px) {
+
+.InlineDialog__header--J3ZOc {
+        padding: 20px 32px 0
+}
+    }
+
+@media (min-width: 768px) {
+
+.InlineDialog__header--J3ZOc.InlineDialog__hiddenForBigScreens--AT1ec {
+            display: none
+    }
+        }
+
+.InlineDialog__body--JJYK5 {
+    padding: 0 40px 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.InlineDialog__footer--dGFQb {
+    padding: 24px 40px;
+    border-top: 1px solid var(--AuthFormDividerGrey);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.InlineDialog__footerRightAligned--CGvyj {
+    justify-content: flex-end;
+}
+
+.InlineDialog__pageWrapper--vC0eT {
+    display: flex;
+    min-height: 100%;
+    justify-content: center;
+    align-items: center;
+}
+
+.InlineDialog__btnWrapper--dIBdD {
+    margin-top: 12px !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.InlineDialog__btnWrapper--dIBdD button {
+        flex: 1;
+    }
+
+.InlineDialog__btnWrapper--dIBdD button.InlineDialog__additionalButton--F3RzW {
+            margin-left: 8px;
+        }
+
+.InlineDialog__additionalBlockWrapper--otaP0 {
+    margin-top: 36px;
+}
+
+.InlineDialog__fieldCommonErrorMessages--GZMCR {
+    margin: 10px 0 20px !important;
+    overflow: hidden;
+}
+
+.InputPassword__root--Xx2XM {
+    position: relative;
+}
+
+    .InputPassword__root--Xx2XM .ui-toolkit-input {
+        padding-right: 48px;
+    }
+
+    .InputPassword__root--Xx2XM .InputPassword__iconContainer--o3RKP {
+        position: absolute;
+        top: 1px;
+        right: 1px;
+        bottom: 1px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .InputPassword__root--Xx2XM .InputPassword__iconButton--xK3fa {
+        height: 34px;
+        width: 34px;
+        padding: 7px;
+        background: transparent;
+        border: none;
+    }
+
+    .InputPassword__root--Xx2XM .InputPassword__icon--haouo {
+        width: 20px;
+        height: 20px;
+    }
+
+.InputVerificationCode__container--FHbW3 {
+    display: flex;
+    column-gap: 8px;
+    min-height: 40px;
+}
+
+    .InputVerificationCode__container--FHbW3.InputVerificationCode__loading--ysOix {
+        min-height: 0;
+        width: 0;
+        height: 0;
+        opacity: 0;
+    }
+
+.InputVerificationCode__item--K7WDu {
+    width: 22px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    padding: 0 5px;
+    cursor: pointer;
+    box-sizing: content-box;
+}
+
+.InputVerificationCode__itemFocused--Wig77 {
+    background: #f3f4f7 !important;
+    border-radius: 4px !important;
+}
+
+.InputVerificationCode__input--oLFT2 {
+    padding: 0 !important;
+    border: 0 !important;
+    outline: none !important;
+    text-align: center;
+    font-size: 32px !important;
+    line-height: 40px !important;
+    font-weight: 500;
+    caret-color: transparent;
+    background: transparent !important;
+    color: #333 !important;
+    width: 100% !important;
+    cursor: pointer;
+}
+
+.InputVerificationCode__input--oLFT2::selection {
+        background: none !important;
+    }
+
+.InputVerificationCode__input--oLFT2:focus {
+        color: #666 !important;
+    }
+
+.InputVerificationCode__inputPlaceholder--enAYP {
+    background: #939fae !important;
+    height: 2px !important;
+}
+
+.InputVerificationCode__wrongCode--I9qk0 {
+    color: #fc2c38 !important;
+}
+
+.theme-mcs-journal .AuthForm__smallCaption--VXNMi,
+    .theme-mcs-journal .AuthForm__footerSmallCaption--AhKZj,
+    .theme-mcs-journal .AuthForm__smallCaption--VXNMi a {
+        color: currentColor;
+    }
+    .theme-mcs-journal .AuthForm__smallCaption--VXNMi {
+        text-align: left;
+        margin-top: 20px;
+    }
+    .theme-mcs-journal .AuthForm__smallCaption--VXNMi a {
+            text-decoration: underline;
+        }
+    .theme-mcs-journal .AuthForm__smallCaption--VXNMi a:hover {
+                text-decoration: none;
+            }
+    .theme-mcs-journal .AuthForm__mainButton--yLGvY {
+        background-color: var(--AuthFormTurquoise) !important;
+        border-radius: 0 0 0 1.5em !important;
+    }
+
+.body_theme_linxcloud .AuthForm__mainButton--yLGvY {
+        border-radius: 5px !important;
+        background-color: var(--AuthFormBgAccentLinxdatacenter) !important;
+    }
+
+.body_theme_linxcloud .AuthForm__mainButton--yLGvY:hover {
+            background-color: var(--AuthFormBgAccentLinxdatacenterHover) !important;
+        }
+
+.body_theme_linxcloud label {
+        color: var(--AuthFormBgLinxdatacenter) !important;
+    }
+
+.body_theme_linxcloud .AuthForm__linkPrimary--mmUdg {
+        color: var(--AuthFormLinkBlueLinxdatacenter) !important;
+    }
+
+.body_theme_megafon .AuthForm__mainButton--yLGvY,
+    .body_theme_megafon .AuthForm__mainButton--yLGvY:hover {
+        background-color: var(--AuthFormMegafonPurple) !important;
+        padding: 13px 25px !important;
+        color: var(--AuthFormMegafonWhite) !important;
+        font-size: 13px !important;
+    }
+
+.body_theme_megafon .AuthForm__linkPrimary--mmUdg {
+        color: var(--AuthFormMegafonPurple) !important;
+    }
+
+.body_theme_rcloud .AuthForm__mainButton--yLGvY,
+    .body_theme_rcloud .AuthForm__mainButton--yLGvY:hover {
+        background-color: var(--AuthFormRcloudBlue) !important;
+        padding: 9px 23px !important;
+        border-radius: 50px !important;
+        color: var(--AuthFormRcloudWhite);
+        font-size: 14px !important;
+        min-width: 150px !important;
+        height: 40px !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+    }
+
+.body_theme_rcloud .AuthForm__linkPrimary--mmUdg {
+        color: var(--AuthFormRcloudBlue) !important;
+    }
+
+.body_theme_atomdata .AuthForm__mainButton--yLGvY,
+    .body_theme_atomdata .AuthForm__mainButton--yLGvY:hover {
+        background-color: var(--AuthFormAtomdataBlue) !important;
+        padding: 10px 20px !important;
+        border-radius: 12px !important;
+        color: var(--AuthFormAtomdataWhite) !important;
+        font-size: 17px !important;
+        font-family: 'Trebuchet MS', Helvetica, sans-serif !important;
+    }
+
+.body_theme_atomdata .AuthForm__linkPrimary--mmUdg {
+        color: var(--AuthFormAtomdataBlue) !important;
+    }
+
+.body_theme_goznak .AuthForm__mainButton--yLGvY {
+        background-color: var(--AuthFormGoznakRed) !important;
+    }
+
+.body_theme_1c .AuthForm__mainButton--yLGvY {
+        background-color: var(--AuthForm1CRed) !important;
+    }
+
+.body_theme_ptsecurity .AuthForm__mainButton--yLGvY {
+        background-color: var(--AuthFormPositiveTechnologiesBlack) !important;
+    }
+
+.AuthForm__linkPrimary--mmUdg p {
+    margin: 0;
+}
+
+.AuthForm__inlineDialog--oLavu {
+    height: 100%;
+}
+
+.AuthForm__inlineDialogBody--cegG5 {
+    padding: 20px !important;
+    flex: 1;
+}
+
+@media (min-width: 768px) {
+
+.AuthForm__inlineDialogBody--cegG5 {
+        padding: 32px !important
+}
+    }
+
+.AuthForm__inlineDialogFooter--hr_KP {
+    padding: 20px !important;
+    justify-content: center !important;
+}
+
+.AuthForm__inlineDialogForm--SHd7i {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+}
+
+.AuthForm__text--wks27 {
+    margin-bottom: 20px;
+}
+
+.AuthForm__caption--xL6h0 {
+    color: var(--AuthFormSecondaryText);
+}
+
+.AuthForm__caption--xL6h0,
+    .AuthForm__caption--xL6h0 > * {
+        font-size: 15px !important;
+        line-height: 20px;
+    }
+
+.AuthForm__marginBottom--Htc3J {
+    margin-bottom: 20px;
+}
+
+.AuthForm__buttonPrefix--gWJeA {
+    font-size: 15px;
+    line-height: 16px;
+    margin-left: 12px;
+    margin-right: 5px;
+}
+
+.AuthForm__buttonLeftMargin--Ngik6 {
+    margin-left: auto;
+}
+
+.AuthForm__signupLinkWrapper--gT35c {
+    display: flex;
+    align-items: center;
+}
+
+.AuthForm__formContainer--UYq79 {
+    width: 100%;
+    height: 100%;
+}
+
+.AuthForm__flexColumn--wl02S {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.AuthForm__TFAHeader--_sBa9 {
+    color: #19191a;
+    font-weight: 500;
+    font-size: 20px;
+    line-height: 24px;
+    text-align: center;
+    letter-spacing: -0.015em;
+
+    margin-bottom: 20px;
+}
+
+.AuthForm__TFADescription--TjYly {
+    font-style: normal;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 20px;
+
+    text-align: center;
+    letter-spacing: -0.015em;
+
+    color: #333;
+
+    margin-bottom: 48px;
+}
+
+.AuthForm__anotherMethodsWrapper--zUHdz {
+    margin-top: 40px;
+    row-gap: 8px;
+}
+
+.AuthForm__anotherMethods--nvRFi {
+    font-weight: 400;
+    font-size: 12px;
+    line-height: 16px;
+
+    text-align: center;
+    letter-spacing: -0.01em;
+
+    color: #939fae;
+}
+
+.AuthForm__inputTFACode--KMY3n {
+    margin-bottom: 80px;
+}
+
+.AuthForm__isLoading--f5tF5 {
+    color: #818c99;
+}
+
+.AuthForm__anotherMethodsLoading--DzjiE {
+    color: #939fae;
+}
+
+.SignInForm__tfaModalContent--NmvLs {
+    padding: 40px 20px !important;
+}
+
+.RegistrationAgreement__smallCaption--hGHTg {
+    color: var(--AuthFormSecondaryText);
+    margin-bottom: 20px;
+    font-size: 14px;
+    line-height: 20px;
+}
+
+.RegistrationAgreement__linkPrimary--v0yY_ p {
+    margin: 0;
+}
+
+.SignInLink__signupLinkWrapper--fDgTi {
+    display: flex;
+    align-items: center;
+}
+
+.SignInLink__buttonPrefix--qKTHD {
+    font-size: 15px;
+    line-height: 16px;
+    margin-left: 12px;
+    margin-right: 5px;
+}
+
+.SignInLink__linkPrimary--wIhQ5 p {
+    margin: 0;
+}
+
+.Chip__chip--XZrhx {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 100px;
+    padding: 0 8px 0 10px;
+    background-color: #e3e8f2;
+}
+
+.Chip__icon--SH3cH {
+    position: relative;
+    top: 2px;
+    margin-left: -4px;
+    margin-right: 2px;
+}
+
+.BonusesBlock__bonusesBlock--Z5Kew {
+    display: flex;
+    position: relative;
+    padding: 16px;
+    box-sizing: border-box;
+    width: 100%;
+    height: 184px;
+    border-radius: 12px;
+    background-color: var(--AuthFormBonusesColor);
+}
+
+.BonusesBlock__bonusesImage--YEi5E {
+    position: absolute;
+    top: -54px;
+    left: -20px;
+    width: 221px;
+    height: 228px;
+}
+
+.BonusesBlock__bonusesText--U3jE2 {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    width: 256px;
+    position: relative;
+    left: 165px;
+}
+
+.BonusesBlock__text--ciHLE {
+    padding-left: 10px;
+    line-height: 20px !important;
+}
+
+.BonusesBlock__chip--VLBY4 {
+    margin-left: -10px;
+}
+
+.BonusesBlock__link--gCkEf {
+    font-size: 12px !important;
+}
+
+.SignUpForm__alertIcon--mKYVi {
+    color: var(--orangeActive) !important;
+}
+
+.SignUpPartnerForm__select--OB1us {
+    width: 100%;
+}
+
+.SignUpPartnerForm__selectDropdown--wJ_4O {
+    background: #fff !important;
+}
+
+.SignUpPartnerForm__inlineDialogFooter--z2Gej {
+    padding: 8px 0 0 !important;
+    justify-content: center !important;
+    border: none !important;
+}
+
+.SignUpPartnerForm__alertIcon--sXVym {
+    color: var(--orangeActive) !important;
+}
+
+.SignUpPartnerForm__body--iN54K {
+    padding: 0 !important;
+}
+
+.SignUpPartnerForm__alert--L0w2p {
+    margin-bottom: 12px;
+}
+
+.PasswordRecoveryFormHeader__header--wxkmN {
+    display: flex;
+    align-items: center;
+    font-size: 20px;
+    line-height: 23px;
+}
+
+.PasswordRecoveryFormHeader__headerDivider--HmsyG {
+    width: 1px;
+    height: 32px;
+    background: var(--AuthFormDividerGrey);
+    margin: 0 16px;
+}
+
+.PasswordRecoveryFormHeader__headerTitle--AhcGS {
+    font-size: 20px;
+    line-height: 23px;
+    padding: 32px 0 24px;
+}
+
+.PasswordRecoveryForm__formContainer--tKFi2 {
+    width: 100%;
+    height: 100%;
+}
+
+.PasswordRecoveryForm__inlineDialog--YlvMX {
+    height: 100%;
+}
+
+.PasswordRecoveryForm__inlineDialogForm--GsWE7 {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+}
+
+.PasswordRecoveryForm__description--HcimU {
+    padding-bottom: 20px;
+}
+
+.PasswordRecoveryForm__descriptionMarginBottom--XPnFh {
+    margin-bottom: 20px;
+}
+
+.PasswordRecoveryForm__done--aujD7 {
+    fill: #28c75d !important;
+    margin-right: 10px;
+}
+
+ui.primary.button.PasswordRecoveryForm__mainButton--HBjvu {
+    background-color: var(--backgroundBlue);
+    min-height: 45px;
+    border-radius: 12px;
+}
+
+.body_theme_goznak .PasswordRecoveryForm__mainButton--HBjvu {
+        background-color: var(--AuthFormGoznakRed) !important;
+    }
+
+.body_theme_1c .PasswordRecoveryForm__mainButton--HBjvu {
+        background-color: var(--AuthForm1CRed) !important;
+    }
+
+.InvitationFormHeader__header--NxRbh {
+    display: flex;
+    align-items: center;
+    font-size: 17px;
+    line-height: 20px;
+}
+
+.InvitationFormHeader__headerDivider--K6Da1 {
+    width: 1px;
+    height: 32px;
+    background: var(--AuthFormDividerGrey);
+    margin: 0 16px;
+}
+
+.InvitationFormHeader__headerTitle--GBQ5L {
+    font-size: 20px;
+    line-height: 23px;
+    padding: 32px 0 24px;
+}
+
+.InvitationForm__formContainer--dQ8xw {
+    width: 100%;
+    height: 100%;
+}
+
+.InvitationForm__inlineDialog--G9KY6 {
+    height: 100%;
+}
+
+.InvitationForm__inlineDialogForm--FAgbd {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+}
+
+.InvitationForm__done--IZ1Gj {
+    fill: #28c75d !important;
+    margin-right: 10px;
+}
+
+ui.primary.button.InvitationForm__mainButton--tKgBQ {
+    background-color: var(--backgroundBlue);
+    min-height: 45px;
+    border-radius: 12px;
+}
+
+.PartnerInvitationForm__formContainer--NPc5W {
+    width: 100%;
+    height: 100%;
+}
+
+.PartnerInvitationForm__inlineDialog--bJ3nZ {
+    height: 100%;
+}
+
+.PartnerInvitationForm__inlineDialogForm--s4T0g {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+}
+
+.PartnerInvitationForm__done--VyEt4 {
+    fill: #28c75d !important;
+    margin-right: 10px;
+}
+
+ui.primary.button.PartnerInvitationForm__mainButton--r9dq4 {
+    background-color: var(--backgroundBlue);
+    min-height: 45px;
+    border-radius: 12px;
+}
+
+
+/*# sourceMappingURL=77.css.map*/
