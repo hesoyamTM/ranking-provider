@@ -1,4 +1,10 @@
-FROM python:3.13-slim AS base
+# syntax=docker/dockerfile:1.7
+
+FROM --platform=$TARGETPLATFORM python:3.13-slim AS base
+
+ARG TARGETPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -18,7 +24,8 @@ WORKDIR /app
 FROM base AS deps
 
 COPY pyproject.toml .
-RUN uv sync --no-dev --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv,id=uv-${TARGETPLATFORM} \
+    uv sync --no-dev --no-install-project
 
 FROM deps AS model
 
@@ -28,7 +35,8 @@ RUN uv run python -c "from sentence_transformers import SentenceTransformer; Sen
 FROM model AS final
 
 COPY . .
-RUN uv sync --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv,id=uv-${TARGETPLATFORM} \
+    uv sync --no-dev
 
 ENTRYPOINT ["uv", "run", "python", "main.py"]
 CMD ["run"]
