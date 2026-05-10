@@ -42,6 +42,17 @@ class SentenceTransformerEmbedder:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, partial(self._encode_batch, services))
 
+    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: [v.tolist() for v in self._model.encode(
+                texts, normalize_embeddings=True, batch_size=16
+            )],
+        )
+
     @property
     def dimension(self) -> int:
         return int(self._model.get_sentence_embedding_dimension())

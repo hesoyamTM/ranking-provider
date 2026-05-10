@@ -5,6 +5,7 @@ import json
 import psycopg
 from pgvector.psycopg import register_vector_async
 
+from src.models.service_package import RegionCoord
 from src.models import Provider, Service, ServicePackage
 
 
@@ -105,3 +106,58 @@ class PostgresServiceRepository:
         async with await self._connect() as conn, conn.cursor() as cur:
             await self._upsert_service(cur, provider_id, service, embedding)
             await conn.commit()
+
+    async def search_by_embedding(
+        self,
+        query_embedding: list[float],
+        top_k: int = 50,
+    ) -> list[tuple[Service, list[float], list[RegionCoord]]]:
+        async with await self._connect() as conn, conn.cursor() as cur:
+            await cur.execute(
+                """
+                SELECT
+                    s.service_id, s.category, s.name, s.description,
+                    s.pricing_model, s.price_from_rub, s.price_unit,
+                    s.compliance_tags, s.tech_tags, s.regions, s.region_coords,
+                    s.embedding
+                FROM services s
+                ORDER BY s.embedding <=> %s::vector
+                LIMIT %s
+                """,
+                (query_embedding, top_k),
+            )
+            rows = await cur.fetchall()
+            results: list[tuple[Service, list[float], list[RegionCoord]]] = []
+            for row in rows:
+                (
+                    service_id, category, name, description,
+                    pricing_model, price_from_rub, price_unit,
+                    compliance_tags, tech_tags, regions, region_coords_json,
+                    embedding,
+                ) = row
+                
+                region_coords = [
+                    RegionCoord(**rc)
+                    for rc in (
+                        region_coords_json
+                        if isinstance(region_coords_json, list)
+                        else json.loads(region_coords_json) if region_coords_json
+                        else []
+                    )
+                ]
+                
+                service = Service(
+                    service_id=service_id,
+                    category=category,
+                    name=name,
+                    description=description or "",
+                    pricing_model=pricing_model or "",
+                    price_from_rub=price_from_rub or 0,
+                    price_unit=price_unit or "",
+                    compliance_tags=compliance_tags or [],
+                    tech_tags=tech_tags or [],
+                    regions=regions or [],
+                    region_coords=region_coords,
+                )
+                results.append((service, list(embedding), region_coords))
+            return results
