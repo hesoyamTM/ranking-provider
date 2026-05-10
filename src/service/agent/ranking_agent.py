@@ -122,7 +122,7 @@ class RankingAgent:
         arguments: dict[str, Any],
     ) -> list[RankedResource]:
         query = await self._build_query(arguments)
-        return self._scorer.rank_marketplace_resources(query=query)
+        return await self._scorer.rank_marketplace_resources(query=query)
 
     async def _build_query(self, arguments: dict[str, Any]) -> UserQuery:
         location = str(arguments.get("location_name") or "")

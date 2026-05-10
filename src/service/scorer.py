@@ -204,5 +204,13 @@ class ScoringService:
 
 
         scored.sort(key=lambda x: x.final_score, reverse=True)
-        
+
         return scored
+
+    async def rank_marketplace_resources(self, query: UserQuery) -> list:
+        from src.models.agent import RankedResource
+        scored = await self.rank(query)
+        return [
+            RankedResource(service=s.service, score=s.final_score, rank=i + 1)
+            for i, s in enumerate(scored)
+        ]

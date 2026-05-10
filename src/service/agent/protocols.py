@@ -33,7 +33,7 @@ class Geocoder(Protocol):
 
 @runtime_checkable
 class RelevanceScorer(Protocol):
-    def rank_marketplace_resources(
+    async def rank_marketplace_resources(
         self,
         query: UserQuery,
     ) -> list[RankedResource]: ...
