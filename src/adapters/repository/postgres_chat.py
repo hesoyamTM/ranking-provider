@@ -11,6 +11,7 @@ class PostgresChatRepository:
 
     async def create_chat(self, user_id: uuid.UUID) -> uuid.UUID:
         chat_id = uuid.uuid4()
+        chat_name = f"New Chat {chat_id}"
         async with self._pool.connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
@@ -18,8 +19,8 @@ class PostgresChatRepository:
                     (user_id,),
                 )
                 await cur.execute(
-                    "INSERT INTO chats (id, user_id) VALUES (%s, %s)",
-                    (chat_id, user_id),
+                    "INSERT INTO chats (id, user_id, name) VALUES (%s, %s, %s)",
+                    (chat_id, user_id, chat_name),
                 )
         return chat_id
 
