@@ -184,6 +184,7 @@ class SelectelWebProvider:
         tech_tags = [t for t in (resource, group) if t]
 
         return Service(
+            provider_id=self._defaults.provider_id,
             service_id=service_id,
             category=category,
             name=f"Selectel {id_prefix} {resource}".strip(),
@@ -261,6 +262,7 @@ class SelectelWebProvider:
             return None
 
         return Service(
+            provider_id=self._defaults.provider_id,
             service_id=f"Selectel_Billing_{sid_seed}",
             category="Other",
             name=name,
@@ -351,6 +353,7 @@ class SelectelWebProvider:
 
         sid_seed = uuid or name
         return Service(
+            provider_id=self._defaults.provider_id,
             service_id=f"Selectel_Svc_{_to_camel(sid_seed)}",
             category=category,
             name=name or str(uuid),

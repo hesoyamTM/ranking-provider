@@ -6,7 +6,6 @@ from typing import Protocol
 
 from src.models import ServicePackage
 from src.service.cloud_provider import CloudProvider
-from src.service.embedder import Embedder
 from src.service.repository import ServiceRepository
 from src.service.search_index_updater import SearchIndexUpdater
 
@@ -22,14 +21,12 @@ class ProviderSyncWorker:
         self,
         providers: list[CloudProvider],
         repository: ServiceRepository,
-        embedder: Embedder,
         interval_seconds: float = 3600.0,
         geocoder: Geocoder | None = None,
         search_index_updater: SearchIndexUpdater | None = None,
     ) -> None:
         self._providers = providers
         self._repository = repository
-        self._embedder = embedder
         self._interval = interval_seconds
         self._geocoder = geocoder
         self._search_index_updater = search_index_updater
@@ -57,12 +54,7 @@ class ProviderSyncWorker:
 
         await self._geocode_package(package)
 
-        vectors = await self._embedder.embed_batch(package.services)
-        embeddings = {
-            svc.service_id: vec for svc, vec in zip(package.services, vectors)
-        }
-
-        await self._repository.save_package(package, embeddings)
+        await self._repository.save_package(package)
         logger.info("Saved package for provider %s", package.provider.provider_id)
         return package
 

@@ -8,7 +8,6 @@ from fastapi import FastAPI
 from openai import AsyncOpenAI
 from yoyo import get_backend, read_migrations
 
-from src.adapters.embedding import SentenceTransformerEmbedder
 from src.adapters.geocoding import NominatimGeocoder
 from src.adapters.llm import YandexGPTAdapter
 from src.adapters.providers.cloudru_web import CloudRuWebProvider
@@ -21,13 +20,22 @@ from src.adapters.repository import PostgresChatRepository, PostgresServiceRepos
 from src.adapters.yandex_cloud import YandexCloudClient, YandexCloudSearchIndexUpdater
 from src.controller.restapi.v1.ranking.router import get_html_router, get_router
 from src.models import Provider
-from src.service import ChatService, ProviderSyncWorker, SearchIndexUpdater
-from src.service.agent import RankingAgent
-from src.service.mock_score import MockRelevanceScorer
+from src.service import ChatService, ProviderSyncWorker
+from src.service.agent import (
+    AgentOrchestrator,
+    AgentToolExecutor,
+    ClarificationAgent,
+    ConfirmationAgent,
+    ExtractionAgent,
+    IntentClassifier,
+    SynthesisAgent,
+)
+from src.service.scorer import ScoringService
 
 import psycopg_pool
 
 from src.config.config import Settings
+from src.adapters.rag import YandexRAGAdapter
 
 
 logger = logging.getLogger(__name__)
@@ -40,6 +48,13 @@ class Application:
         self.openai_client = AsyncOpenAI(
             api_key=settings.yandex_api_key,
             base_url=settings.yandex_base_url,
+            project=settings.yandex_folder_id,
+        )
+
+        self.ai_studio_client = AsyncOpenAI(
+            api_key=settings.yandex_api_key,
+            base_url=settings.yandex_ai_studio_base_url,
+            project=settings.yandex_folder_id,
         )
 
         _t1_provider_defaults = Provider(
@@ -108,7 +123,9 @@ class Application:
                 )
             )
 
-        if settings.use_vk_cloud_provider:  # Проверь, как называется этот флаг в твоем Settings
+        if (
+            settings.use_vk_cloud_provider
+        ):  # Проверь, как называется этот флаг в твоем Settings
             providers.append(
                 VkCloudWebProvider(
                     provider_defaults=Provider(
@@ -127,7 +144,6 @@ class Application:
         )
         self.pool = pool
 
-        self.embedder = SentenceTransformerEmbedder(model_name=settings.embedding_model)
         self.repository = PostgresServiceRepository(dsn=settings.postgres_dsn)
         self.chat_repo = PostgresChatRepository(pool=pool)  # type: ignore
         self.geocoder = NominatimGeocoder()
@@ -137,13 +153,28 @@ class Application:
             model=settings.yandex_model,
         )
 
-        self.scorer = MockRelevanceScorer()
+        rag = YandexRAGAdapter(
+            client=self.ai_studio_client,
+            agent_id=settings.yandex_rag_agent_id,
+        )
 
-        self.agent = RankingAgent(
-            llm=self.llm,
-            geocoder=self.geocoder,
+        self.scorer = ScoringService(
+            rag=rag,
+        )
+
+        tool_executor = AgentToolExecutor(
+            provider_repo=self.repository,
             scorer=self.scorer,
+            geocoder=self.geocoder,
+        )
+
+        self.agent = AgentOrchestrator(
             chat_repo=self.chat_repo,
+            intent=IntentClassifier(llm=self.llm),
+            extraction=ExtractionAgent(llm=self.llm),
+            clarification=ClarificationAgent(llm=self.llm),
+            confirmation=ConfirmationAgent(llm=self.llm),
+            synthesis=SynthesisAgent(llm=self.llm, tool_executor=tool_executor),
         )
 
         self.chat_service = ChatService(
@@ -165,7 +196,6 @@ class Application:
         self.worker = ProviderSyncWorker(
             providers=providers,
             repository=self.repository,
-            embedder=self.embedder,
             interval_seconds=settings.sync_interval_seconds,
             geocoder=self.geocoder,
             search_index_updater=self.search_index_updater,
@@ -177,7 +207,8 @@ class Application:
         logger.info("Migrations applied")
 
     def _migrate_sync(self) -> None:
-        backend = get_backend(self.settings.postgres_dsn)
+        dsn = self.settings.postgres_dsn.replace("postgresql://", "postgresql+psycopg://", 1)
+        backend = get_backend(dsn)
         migrations = read_migrations(str(self.settings.migrations_dir))
         with backend.lock():
             backend.apply_migrations(backend.to_apply(migrations))

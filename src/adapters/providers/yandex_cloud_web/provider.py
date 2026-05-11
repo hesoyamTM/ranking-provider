@@ -151,6 +151,7 @@ class YandexCloudWebProvider:
                 tech_tags.append(tag)
 
         return Service(
+            provider_id=self._defaults.provider_id,
             service_id=f"YandexCloud_{_to_camel(sku_name)}",
             category=category,
             name=translated_name,

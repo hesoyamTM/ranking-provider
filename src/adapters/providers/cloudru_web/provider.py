@@ -213,6 +213,8 @@ class CloudRuWebProvider:
         services: list[Service] = []
         for item in items:
             try:
+                if isinstance(item, dict):
+                    item.setdefault("provider_id", self._defaults.provider_id)
                 services.append(Service.model_validate(item))
             except Exception:
                 logger.exception("Failed to parse service from %s: %s", label, item)

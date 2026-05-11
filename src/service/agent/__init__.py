@@ -1,25 +1,37 @@
 from src.models.agent import LLMResponse, Message, RankedResource, ScoringWeights, ToolCall
+from src.service.agent.clarification_agent import ClarificationAgent
+from src.service.agent.confirmation_agent import ConfirmationAgent
+from src.service.agent.extraction_agent import ExtractionAgent
+from src.service.agent.intent_classifier import IntentClassifier
+from src.service.agent.orchestrator import AgentOrchestrator
 from src.service.agent.protocols import (
-    TOOL_ASK_CLARIFICATION,
-    TOOL_RANK_SERVICES,
     ChatRepository,
     Geocoder,
+    Intent,
     LLMClient,
+    ProviderRepository,
     RelevanceScorer,
 )
-from src.service.agent.ranking_agent import RankingAgent
+from src.service.agent.synthesis_agent import SynthesisAgent
+from src.service.agent.tools import AgentToolExecutor
 
 __all__ = [
+    "AgentOrchestrator",
+    "AgentToolExecutor",
     "ChatRepository",
+    "ClarificationAgent",
+    "ConfirmationAgent",
+    "ExtractionAgent",
     "Geocoder",
+    "Intent",
+    "IntentClassifier",
     "LLMClient",
     "LLMResponse",
     "Message",
+    "ProviderRepository",
     "RankedResource",
-    "RankingAgent",
     "RelevanceScorer",
     "ScoringWeights",
-    "TOOL_ASK_CLARIFICATION",
-    "TOOL_RANK_SERVICES",
+    "SynthesisAgent",
     "ToolCall",
 ]

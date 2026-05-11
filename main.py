@@ -18,8 +18,6 @@ logging.basicConfig(
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
-logging.getLogger("huggingface_hub").setLevel(logging.WARNING)
-logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
 
 app = typer.Typer(help="Provider ranking agent CLI")
 
