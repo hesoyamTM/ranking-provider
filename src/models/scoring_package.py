@@ -1,8 +1,6 @@
-from dataclasses import Field, dataclass
+from dataclasses import dataclass
 from decimal import Decimal
-from typing import Tuple
-
-from openai import BaseModel
+from pydantic import BaseModel, Field
 
 from src.models import Service
 

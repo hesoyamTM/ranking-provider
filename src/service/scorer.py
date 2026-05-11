@@ -71,7 +71,7 @@ class ScoringService:
                     score=score,
                 )
             )
-        scored.sort(key=lambda x: x.final_score, reverse=True)
+        scored.sort(key=lambda x: x.score.final_score, reverse=True)
         return scored
 
     async def rank_by_provider(self, query: UserQuery) -> List[ScoredService]:

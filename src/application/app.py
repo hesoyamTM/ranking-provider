@@ -21,7 +21,7 @@ from src.adapters.repository import PostgresChatRepository, PostgresServiceRepos
 from src.controller.restapi.v1.ranking.router import get_html_router, get_router
 from src.models import Provider
 from src.service import ChatService, ProviderSyncWorker
-from src.service.agent import RankingAgent
+from src.service.agent.ranking_agent import RankingAgent
 from src.service.scorer import ScoringService, ScoringConfig
 
 import psycopg_pool
@@ -136,7 +136,7 @@ class Application:
             model=settings.yandex_model,
         )
 
-        self.scorer = ScoringService(embedder=self.embedder, repository=self.repository, config=ScoringConfig(), top_k=10)
+        self.scorer = ScoringService(embedder=self.embedder, repository=self.repository, config=ScoringConfig())
 
         self.agent = RankingAgent(
             llm=self.llm,
