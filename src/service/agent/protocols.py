@@ -1,26 +1,37 @@
 from __future__ import annotations
 
 import uuid
-from typing import AsyncGenerator, Protocol, runtime_checkable
+from enum import Enum
+from typing import Any, AsyncGenerator, Protocol, runtime_checkable
 
-from src.models.agent import LLMResponse, Message, RankedResource
-from src.models.service_package import UserQuery
+from src.models.agent import LLMResponse, Message
+from src.models.service_package import Provider, UserQuery
+from src.models.session import SessionState
+from src.service.scorer import Service
 
-TOOL_ASK_CLARIFICATION = "ask_clarification"
-TOOL_RANK_SERVICES = "rank_services"
+
+class Intent(str, Enum):
+    """Намерение пользователя относительно текущего диалога."""
+
+    CONTINUE = "continue"
+    RESTART = "restart"
 
 
 @runtime_checkable
 class LLMClient(Protocol):
-    """Клиент языковой модели с поддержкой function calling и стриминга."""
+    """Универсальный клиент LLM с function calling и стримингом."""
 
-    @property
-    def system_prompt(self) -> str: ...
+    async def complete(
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None = None,
+        temperature: float | None = None,
+    ) -> LLMResponse: ...
 
-    async def chat(self, messages: list[Message]) -> LLMResponse: ...
-
-    def stream_chat(
-        self, messages: list[Message]
+    def stream(
+        self,
+        messages: list[Message],
+        temperature: float | None = None,
     ) -> AsyncGenerator[str, None]: ...
 
 
@@ -33,36 +44,46 @@ class Geocoder(Protocol):
 
 @runtime_checkable
 class RelevanceScorer(Protocol):
-    def rank_marketplace_resources(
-        self,
-        query: UserQuery,
-    ) -> list[RankedResource]: ...
+    async def rank_by_rag(self, user_query: UserQuery) -> str:
+        """
+        Подбирает самые релевантные услуги для каждого provider_id
+        """
+        ...
+
+
+@runtime_checkable
+class ProviderRepository(Protocol):
+    """Источник «белого списка» провайдеров для синтеза."""
+
+    async def list_providers(self) -> list[Provider]: ...
 
 
 @runtime_checkable
 class ChatRepository(Protocol):
-    """Хранилище истории сообщений чата."""
+    """Хранилище истории сообщений и состояния сессии."""
 
-    async def create_chat(self, user_id: uuid.UUID) -> uuid.UUID:
-        """Создать новый чат для существующего пользователя. Возвращает chat_id."""
-        ...
+    async def create_chat(self, user_id: uuid.UUID) -> uuid.UUID: ...
 
-    async def get_chats_by_user(self, user_id: uuid.UUID) -> list[uuid.UUID]:
-        """Вернуть список chat_id пользователя."""
-        ...
+    async def get_chats_by_user(self, user_id: uuid.UUID) -> list[uuid.UUID]: ...
 
     async def get_chat_by_id(
         self, chat_id: uuid.UUID, user_id: uuid.UUID
-    ) -> list[Message]:
-        """Вернуть историю сообщений чата (пустой список, если чата нет)."""
-        ...
+    ) -> list[Message]: ...
 
     async def append_message(
         self, chat_id: uuid.UUID, user_id: uuid.UUID, message: Message
-    ) -> None:
-        """Добавить одно сообщение в историю чата."""
-        ...
+    ) -> None: ...
 
-    async def delete_chat(self, chat_id: uuid.UUID, user_id: uuid.UUID) -> None:
-        """Удалить чат и все сообщения в нем."""
-        ...
+    async def delete_chat(self, chat_id: uuid.UUID, user_id: uuid.UUID) -> None: ...
+
+    async def get_session_state(
+        self, chat_id: uuid.UUID, user_id: uuid.UUID
+    ) -> SessionState | None: ...
+
+    async def save_session_state(
+        self, chat_id: uuid.UUID, user_id: uuid.UUID, state: SessionState
+    ) -> None: ...
+
+    async def clear_session_state(
+        self, chat_id: uuid.UUID, user_id: uuid.UUID
+    ) -> None: ...

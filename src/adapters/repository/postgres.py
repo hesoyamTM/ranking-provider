@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 
 import psycopg
-from pgvector.psycopg import register_vector_async
 
 from src.models import Provider, Service, ServicePackage
 
@@ -13,9 +12,7 @@ class PostgresServiceRepository:
         self._dsn = dsn
 
     async def _connect(self) -> psycopg.AsyncConnection:
-        conn = await psycopg.AsyncConnection.connect(self._dsn)
-        await register_vector_async(conn)
-        return conn
+        return await psycopg.AsyncConnection.connect(self._dsn)
 
     @staticmethod
     async def _upsert_provider(cur: psycopg.AsyncCursor, provider: Provider) -> None:
@@ -29,7 +26,12 @@ class PostgresServiceRepository:
                 regions = EXCLUDED.regions,
                 updated_at = NOW()
             """,
-            (provider.provider_id, provider.name, provider.base_platform, provider.regions),
+            (
+                provider.provider_id,
+                provider.name,
+                provider.base_platform,
+                provider.regions,
+            ),
         )
 
     @staticmethod
@@ -37,7 +39,6 @@ class PostgresServiceRepository:
         cur: psycopg.AsyncCursor,
         provider_id: str,
         service: Service,
-        embedding: list[float],
     ) -> None:
         region_coords_json = json.dumps(
             [rc.model_dump() for rc in service.region_coords]
@@ -47,10 +48,10 @@ class PostgresServiceRepository:
             INSERT INTO services (
                 service_id, provider_id, category, name, description,
                 pricing_model, price_from_rub, price_unit,
-                compliance_tags, tech_tags, embedding,
+                compliance_tags, tech_tags,
                 regions, region_coords
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (provider_id, service_id) DO UPDATE SET
                 category = EXCLUDED.category,
                 name = EXCLUDED.name,
@@ -60,7 +61,6 @@ class PostgresServiceRepository:
                 price_unit = EXCLUDED.price_unit,
                 compliance_tags = EXCLUDED.compliance_tags,
                 tech_tags = EXCLUDED.tech_tags,
-                embedding = EXCLUDED.embedding,
                 regions = EXCLUDED.regions,
                 region_coords = EXCLUDED.region_coords,
                 updated_at = NOW()
@@ -76,32 +76,36 @@ class PostgresServiceRepository:
                 service.price_unit,
                 service.compliance_tags,
                 service.tech_tags,
-                embedding,
                 service.regions,
                 region_coords_json,
             ),
         )
 
-    async def save_package(
-        self,
-        package: ServicePackage,
-        embeddings: dict[str, list[float]],
-    ) -> None:
+    async def save_package(self, package: ServicePackage) -> None:
         async with await self._connect() as conn, conn.cursor() as cur:
             await self._upsert_provider(cur, package.provider)
             for service in package.services:
-                vec = embeddings.get(service.service_id)
-                if vec is None:
-                    raise ValueError(f"Missing embedding for service {service.service_id}")
-                await self._upsert_service(cur, package.provider.provider_id, service, vec)
+                await self._upsert_service(
+                    cur, package.provider.provider_id, service
+                )
             await conn.commit()
 
-    async def upsert_service(
-        self,
-        provider_id: str,
-        service: Service,
-        embedding: list[float],
-    ) -> None:
+    async def list_providers(self) -> list[Provider]:
         async with await self._connect() as conn, conn.cursor() as cur:
-            await self._upsert_service(cur, provider_id, service, embedding)
-            await conn.commit()
+            await cur.execute(
+                """
+                SELECT provider_id, name, base_platform, regions
+                FROM providers
+                ORDER BY provider_id
+                """
+            )
+            rows = await cur.fetchall()
+            return [
+                Provider(
+                    provider_id=provider_id,
+                    name=name,
+                    base_platform=base_platform or "",
+                    regions=regions or [],
+                )
+                for (provider_id, name, base_platform, regions) in rows
+            ]

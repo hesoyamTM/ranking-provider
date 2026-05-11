@@ -5,7 +5,6 @@ import logging
 from typing import Protocol
 
 from src.service.cloud_provider import CloudProvider
-from src.service.embedder import Embedder
 from src.service.repository import ServiceRepository
 
 logger = logging.getLogger(__name__)
@@ -20,13 +19,11 @@ class ProviderSyncWorker:
         self,
         providers: list[CloudProvider],
         repository: ServiceRepository,
-        embedder: Embedder,
         interval_seconds: float = 3600.0,
         geocoder: Geocoder | None = None,
     ) -> None:
         self._providers = providers
         self._repository = repository
-        self._embedder = embedder
         self._interval = interval_seconds
         self._geocoder = geocoder
 
@@ -49,10 +46,7 @@ class ProviderSyncWorker:
 
         await self._geocode_package(package)
 
-        vectors = await self._embedder.embed_batch(package.services)
-        embeddings = {svc.service_id: vec for svc, vec in zip(package.services, vectors)}
-
-        await self._repository.save_package(package, embeddings)
+        await self._repository.save_package(package)
         logger.info("Saved package for provider %s", package.provider.provider_id)
 
     async def run_once(self) -> None:

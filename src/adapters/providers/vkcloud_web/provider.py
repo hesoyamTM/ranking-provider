@@ -68,6 +68,7 @@ class VkCloudWebProvider:
                 p_model = "per-month" if "30 дн" in table.get_text().lower() else "per-unit"
 
                 services.append(Service(
+                    provider_id=self._defaults.provider_id,
                     service_id=service_id,
                     category=self._guess_category(name),
                     name=name,

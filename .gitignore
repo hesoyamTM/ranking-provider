@@ -52,6 +52,3 @@ coverage.xml
 
 # Docker
 .docker/
-
-# sentence-transformers model cache
-sentence_transformers_cache/
