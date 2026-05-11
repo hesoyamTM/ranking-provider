@@ -6,9 +6,12 @@ from typing import Any, ClassVar
 
 from src.models.agent import Message, MessageToolCall, Role
 from src.models.service_package import UserQuery
-from src.service.agent._filter import validate_and_filter
-from src.service.agent._formatter import group_by_provider
-from src.service.agent.protocols import Geocoder, LLMClient, ProviderRepository, RelevanceScorer
+from src.service.agent.protocols import (
+    Geocoder,
+    LLMClient,
+    ProviderRepository,
+    RelevanceScorer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +21,7 @@ class AgentToolExecutor:
 
     # ── Имена инструментов ────────────────────────────────────────────────
     TOOL_GET_PROVIDERS = "get_providers"
-    TOOL_RANK_BY_SERVICES = "rank_by_services"
-    TOOL_RANK_BY_PROVIDERS = "rank_by_providers"
+    TOOL_RANK_BY_RAG = "rank_by_rag"
 
     _RANKING_PARAMS: ClassVar[dict[str, Any]] = {
         "type": "object",
@@ -69,23 +71,11 @@ class AgentToolExecutor:
         {
             "type": "function",
             "function": {
-                "name": TOOL_RANK_BY_SERVICES,
+                "name": TOOL_RANK_BY_RAG,
                 "description": (
-                    "Найти топ услуг (глобально по всем провайдерам) по семантическому сходству "
-                    "с запросом компонента. Возвращает услуги, сгруппированные по провайдеру. "
-                    "Вызывай для каждого компонента системы."
-                ),
-                "parameters": _RANKING_PARAMS,
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": TOOL_RANK_BY_PROVIDERS,
-                "description": (
-                    "Найти лучшие услуги от каждого провайдера по семантическому сходству "
-                    "с запросом компонента (топ-N на провайдера). "
-                    "Вызывай для каждого компонента системы."
+                    "Семантический RAG-подбор услуг по запросу компонента. "
+                    "Возвращает готовый Markdown-текст с подходящими услугами "
+                    "по провайдерам. Вызывай для каждого компонента системы."
                 ),
                 "parameters": _RANKING_PARAMS,
             },
@@ -107,10 +97,8 @@ class AgentToolExecutor:
     async def execute(self, tool_name: str, arguments: dict[str, Any]) -> str:
         if tool_name == self.TOOL_GET_PROVIDERS:
             return await self._get_providers()
-        if tool_name == self.TOOL_RANK_BY_SERVICES:
-            return await self._rank(self.TOOL_RANK_BY_SERVICES, arguments)
-        if tool_name == self.TOOL_RANK_BY_PROVIDERS:
-            return await self._rank(self.TOOL_RANK_BY_PROVIDERS, arguments)
+        if tool_name == self.TOOL_RANK_BY_RAG:
+            return await self._rank(self.TOOL_RANK_BY_RAG, arguments)
         raise ValueError(f"AgentToolExecutor: неизвестный тул '{tool_name}'")
 
     # ── Реализации инструментов ───────────────────────────────────────────
@@ -132,36 +120,9 @@ class AgentToolExecutor:
 
     async def _rank(self, tool_name: str, arguments: dict[str, Any]) -> str:
         query = await self._build_query(arguments)
-        filter_args = {
-            "required_tags": arguments.get("required_tags") or [],
-            "max_budget": arguments.get("max_budget_rub"),
-        }
-        if tool_name == self.TOOL_RANK_BY_SERVICES:
-            scored = await self._scorer.rank_by_services(query=query)
-        else:
-            scored = await self._scorer.rank_by_providers(query=query)
-
-        filtered, quality = validate_and_filter(scored, filter_args)
-        logger.info(
-            "%s: kept=%d top=%.4f needs_refinement=%s",
-            tool_name,
-            quality["candidates_kept"],
-            quality["top_final_score"],
-            quality["needs_refinement"],
-        )
-        return json.dumps(
-            {
-                "query": {
-                    "clean_intent": query.clean_intent,
-                    "location_name": query.location_name,
-                    "max_budget_rub": arguments.get("max_budget_rub"),
-                },
-                "providers_ranked": group_by_provider(filtered),
-                "_internal_quality": quality,
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
+        markdown = await self._scorer.rank_by_rag(user_query=query)
+        logger.info("%s: markdown_len=%d", tool_name, len(markdown))
+        return markdown
 
     async def _build_query(self, arguments: dict[str, Any]) -> UserQuery:
         location_name = arguments.get("location_name") or ""
@@ -180,9 +141,8 @@ class AgentToolExecutor:
         )
 
     _STATUS: ClassVar[dict[str, str]] = {
-        TOOL_GET_PROVIDERS:    "Получаю список провайдеров...",
-        TOOL_RANK_BY_SERVICES: "Ищу подходящие услуги...",
-        TOOL_RANK_BY_PROVIDERS: "Ранжирую провайдеров...",
+        TOOL_GET_PROVIDERS: "Получаю список провайдеров...",
+        TOOL_RANK_BY_RAG: "Ищу подходящие услуги...",
     }
 
     # ── Агентный цикл ─────────────────────────────────────────────────────
@@ -226,10 +186,14 @@ class AgentToolExecutor:
         current: list[Message] = list(messages)
 
         for round_num in range(1, max_rounds + 1):
-            response = await llm.complete(current, tools=self.TOOLS, temperature=temperature)
+            response = await llm.complete(
+                current, tools=self.TOOLS, temperature=temperature
+            )
 
             if not response.tool_calls:
-                logger.info("AgentToolExecutor: тулы не вызваны на раунде %d", round_num)
+                logger.info(
+                    "AgentToolExecutor: тулы не вызваны на раунде %d", round_num
+                )
                 break
 
             logger.info(
@@ -284,9 +248,7 @@ class AgentToolExecutor:
                     )
                 )
         else:
-            logger.warning(
-                "AgentToolExecutor: превышен лимит раундов (%d)", max_rounds
-            )
+            logger.warning("AgentToolExecutor: превышен лимит раундов (%d)", max_rounds)
 
         yield "Формирую ответ..."
         out_messages.extend(current)

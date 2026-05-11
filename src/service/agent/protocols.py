@@ -7,7 +7,7 @@ from typing import Any, AsyncGenerator, Protocol, runtime_checkable
 from src.models.agent import LLMResponse, Message
 from src.models.service_package import Provider, UserQuery
 from src.models.session import SessionState
-from src.service.scorer import ScoredService
+from src.service.scorer import Service
 
 
 class Intent(str, Enum):
@@ -44,9 +44,11 @@ class Geocoder(Protocol):
 
 @runtime_checkable
 class RelevanceScorer(Protocol):
-    async def rank_by_services(self, query: UserQuery) -> list[ScoredService]: ...
-
-    async def rank_by_providers(self, query: UserQuery) -> list[ScoredService]: ...
+    async def rank_by_rag(self, user_query: UserQuery) -> str:
+        """
+        Подбирает самые релевантные услуги для каждого provider_id
+        """
+        ...
 
 
 @runtime_checkable

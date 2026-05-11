@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 class SynthesisAgent:
     """LLM-синтез финального ответа через tool loop.
 
-    ЛММ сама вызывает rank_by_services и rank_by_providers для каждого
-    компонента, затем стримит финальный markdown на основе результатов.
+    ЛММ сама вызывает rank_by_rag для каждого компонента,
+    затем стримит финальный markdown на основе результатов.
     """
 
     def __init__(self, llm: LLMClient, tool_executor: "AgentToolExecutor") -> None:  # noqa: F821
@@ -54,8 +54,8 @@ class SynthesisAgent:
             Message(role=Role.USER, content=payload),
         ]
 
-        # Даём достаточно раундов: 2 тула × N компонентов + 1 на get_providers
-        max_rounds = max(6, len(state.components) * 2 + 2)
+        # Даём достаточно раундов: 1 тул × N компонентов + 1 на get_providers
+        max_rounds = max(6, len(state.components) + 2)
 
         logger.info(
             "SynthesisAgent: запуск tool loop, components=%d max_rounds=%d",

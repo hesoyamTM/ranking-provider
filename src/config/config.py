@@ -9,10 +9,10 @@ class Settings:
     yandex_api_key: str
     yandex_model: str
     yandex_base_url: str
+    yandex_ai_studio_base_url: str
     data_dir: Path
     migrations_dir: Path
     sync_interval_seconds: float
-    embedding_model: str
     host: str
     port: int
     use_t1_local_provider: bool
@@ -21,6 +21,8 @@ class Settings:
     use_yandex_cloud_provider: bool
     use_selectel_provider: bool
     use_vk_cloud_provider: bool = True
+    yandex_rag_agent_id: str = ""
+    yandex_folder_id: str = ""
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -37,15 +39,15 @@ class Settings:
             yandex_base_url=os.environ.get(
                 "YANDEX_BASE_URL", "https://llm.api.cloud.yandex.net/v1"
             ),
+            yandex_ai_studio_base_url=os.environ.get(
+                "YANDEX_AI_STUDIO_BASE_URL", "https://ai.api.cloud.yandex.net/v1"
+            ),
             data_dir=Path(os.environ.get("T1_DATA_DIR", "data/t1")).resolve(),
             migrations_dir=Path(
                 os.environ.get("MIGRATIONS_DIR", "migration")
             ).resolve(),
             sync_interval_seconds=float(
                 os.environ.get("SYNC_INTERVAL_SECONDS", "3600")
-            ),
-            embedding_model=os.environ.get(
-                "EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
             ),
             host=os.environ.get("HOST", "0.0.0.0"),
             port=int(os.environ.get("PORT", "8000")),
@@ -67,4 +69,6 @@ class Settings:
                 "VK_CLOUD_WEB_PROVIDER", default="false"
             ).lower()
             == "true",
+            yandex_rag_agent_id=os.environ.get("YANDEX_RAG_AGENT_ID", ""),
+            yandex_folder_id=os.environ.get("YANDEX_FOLDER_ID", ""),
         )

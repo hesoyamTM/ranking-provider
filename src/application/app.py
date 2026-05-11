@@ -8,7 +8,6 @@ from fastapi import FastAPI
 from openai import AsyncOpenAI
 from yoyo import get_backend, read_migrations
 
-from src.adapters.embedding import SentenceTransformerEmbedder
 from src.adapters.geocoding import NominatimGeocoder
 from src.adapters.llm import YandexGPTAdapter
 from src.adapters.providers.cloudru_web import CloudRuWebProvider
@@ -30,11 +29,12 @@ from src.service.agent import (
     IntentClassifier,
     SynthesisAgent,
 )
-from src.service.scorer import ScoringService, ScoringConfig
+from src.service.scorer import ScoringService
 
 import psycopg_pool
 
 from src.config.config import Settings
+from src.adapters.rag import YandexRAGAdapter
 
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,13 @@ class Application:
         self.openai_client = AsyncOpenAI(
             api_key=settings.yandex_api_key,
             base_url=settings.yandex_base_url,
+            project=settings.yandex_folder_id,
+        )
+
+        self.ai_studio_client = AsyncOpenAI(
+            api_key=settings.yandex_api_key,
+            base_url=settings.yandex_ai_studio_base_url,
+            project=settings.yandex_folder_id,
         )
 
         _t1_provider_defaults = Provider(
@@ -115,7 +122,9 @@ class Application:
                 )
             )
 
-        if settings.use_vk_cloud_provider:  # Проверь, как называется этот флаг в твоем Settings
+        if (
+            settings.use_vk_cloud_provider
+        ):  # Проверь, как называется этот флаг в твоем Settings
             providers.append(
                 VkCloudWebProvider(
                     provider_defaults=Provider(
@@ -134,7 +143,6 @@ class Application:
         )
         self.pool = pool
 
-        self.embedder = SentenceTransformerEmbedder(model_name=settings.embedding_model)
         self.repository = PostgresServiceRepository(dsn=settings.postgres_dsn)
         self.chat_repo = PostgresChatRepository(pool=pool)  # type: ignore
         self.geocoder = NominatimGeocoder()
@@ -144,8 +152,13 @@ class Application:
             model=settings.yandex_model,
         )
 
+        rag = YandexRAGAdapter(
+            client=self.ai_studio_client,
+            agent_id=settings.yandex_rag_agent_id,
+        )
+
         self.scorer = ScoringService(
-            embedder=self.embedder, repository=self.repository, config=ScoringConfig()
+            rag=rag,
         )
 
         tool_executor = AgentToolExecutor(
@@ -171,7 +184,6 @@ class Application:
         self.worker = ProviderSyncWorker(
             providers=providers,
             repository=self.repository,
-            embedder=self.embedder,
             interval_seconds=settings.sync_interval_seconds,
             geocoder=self.geocoder,
         )
