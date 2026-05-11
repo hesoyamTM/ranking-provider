@@ -20,6 +20,9 @@ class Settings:
     use_cloudru_provider: bool
     use_yandex_cloud_provider: bool
     use_selectel_provider: bool
+    yandex_folder_id: str = ""
+    yandex_vector_store_id: str = ""
+    use_yandex_search_index_sync: bool = False
     use_vk_cloud_provider: bool = True
 
     @classmethod
@@ -65,6 +68,12 @@ class Settings:
             == "true",
             use_vk_cloud_provider=os.environ.get(
                 "VK_CLOUD_WEB_PROVIDER", default="false"
+            ).lower()
+            == "true",
+            yandex_folder_id=folder_id,
+            yandex_vector_store_id=os.environ.get("YANDEX_VECTOR_STORE_ID", ""),
+            use_yandex_search_index_sync=os.environ.get(
+                "YANDEX_SEARCH_INDEX_SYNC", "false"
             ).lower()
             == "true",
         )

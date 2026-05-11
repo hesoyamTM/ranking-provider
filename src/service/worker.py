@@ -4,9 +4,11 @@ import asyncio
 import logging
 from typing import Protocol
 
+from src.models import ServicePackage
 from src.service.cloud_provider import CloudProvider
 from src.service.embedder import Embedder
 from src.service.repository import ServiceRepository
+from src.service.search_index_updater import SearchIndexUpdater
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +25,16 @@ class ProviderSyncWorker:
         embedder: Embedder,
         interval_seconds: float = 3600.0,
         geocoder: Geocoder | None = None,
+        search_index_updater: SearchIndexUpdater | None = None,
     ) -> None:
         self._providers = providers
         self._repository = repository
         self._embedder = embedder
         self._interval = interval_seconds
         self._geocoder = geocoder
+        self._search_index_updater = search_index_updater
 
-    async def _geocode_package(self, package) -> None:
+    async def _geocode_package(self, package: ServicePackage) -> None:
         """Populate region_coords on each service in-place."""
         if not self._geocoder:
             return
@@ -43,21 +47,50 @@ class ProviderSyncWorker:
                 coords_map[r] for r in svc.regions if coords_map.get(r) is not None
             ]
 
-    async def _sync_provider(self, provider: CloudProvider) -> None:
+    async def _sync_provider(self, provider: CloudProvider) -> ServicePackage:
         package = await provider.fetch()
-        logger.info("Got %d services from %s", len(package.services), package.provider.provider_id)
+        logger.info(
+            "Got %d services from %s",
+            len(package.services),
+            package.provider.provider_id,
+        )
 
         await self._geocode_package(package)
 
         vectors = await self._embedder.embed_batch(package.services)
-        embeddings = {svc.service_id: vec for svc, vec in zip(package.services, vectors)}
+        embeddings = {
+            svc.service_id: vec for svc, vec in zip(package.services, vectors)
+        }
 
         await self._repository.save_package(package, embeddings)
         logger.info("Saved package for provider %s", package.provider.provider_id)
+        return package
+
+    async def _update_search_index(self, packages: list[ServicePackage]) -> None:
+        logger.info("Updating search index")
+        if not self._search_index_updater:
+            logger.info("Search index updater not configured")
+            return
+        try:
+            await self._search_index_updater.update_index(packages)
+            logger.info("Search index updated")
+        except Exception:
+            logger.exception("Search index update failed")
 
     async def run_once(self) -> None:
         logger.info("Syncing %d provider(s)", len(self._providers))
-        await asyncio.gather(*[self._sync_provider(p) for p in self._providers])
+        results = await asyncio.gather(
+            *[self._sync_provider(p) for p in self._providers],
+            return_exceptions=True,
+        )
+        packages: list[ServicePackage] = []
+        for provider, result in zip(self._providers, results):
+            if isinstance(result, BaseException):
+                logger.error("Provider %r sync failed: %s", provider, result)
+                continue
+            packages.append(result)
+
+        await self._update_search_index(packages)
 
     async def run_forever(self) -> None:
         while True:

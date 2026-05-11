@@ -18,9 +18,10 @@ from src.adapters.providers.t1_web import T1WebCloudProvider
 from src.adapters.providers.vkcloud_web.provider import VkCloudWebProvider
 from src.adapters.providers.yandex_cloud_web import YandexCloudWebProvider
 from src.adapters.repository import PostgresChatRepository, PostgresServiceRepository
+from src.adapters.yandex_cloud import YandexCloudClient, YandexCloudSearchIndexUpdater
 from src.controller.restapi.v1.ranking.router import get_html_router, get_router
 from src.models import Provider
-from src.service import ChatService, ProviderSyncWorker
+from src.service import ChatService, ProviderSyncWorker, SearchIndexUpdater
 from src.service.agent import RankingAgent
 from src.service.mock_score import MockRelevanceScorer
 
@@ -150,12 +151,24 @@ class Application:
             agent=self.agent,
         )
 
+        self.search_index_updater: SearchIndexUpdater | None = None
+        if settings.use_yandex_search_index_sync:
+            yandex_cloud_client = YandexCloudClient(
+                api_key=settings.yandex_api_key,
+                folder_id=settings.yandex_folder_id,
+            )
+            self.search_index_updater = YandexCloudSearchIndexUpdater(
+                client=yandex_cloud_client,
+                vector_store_id=settings.yandex_vector_store_id,
+            )
+
         self.worker = ProviderSyncWorker(
             providers=providers,
             repository=self.repository,
             embedder=self.embedder,
             interval_seconds=settings.sync_interval_seconds,
             geocoder=self.geocoder,
+            search_index_updater=self.search_index_updater,
         )
 
     async def migrate(self) -> None:
