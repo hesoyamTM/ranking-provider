@@ -21,7 +21,15 @@ from src.adapters.repository import PostgresChatRepository, PostgresServiceRepos
 from src.controller.restapi.v1.ranking.router import get_html_router, get_router
 from src.models import Provider
 from src.service import ChatService, ProviderSyncWorker
-from src.service.agent.ranking_agent import RankingAgent
+from src.service.agent import (
+    AgentOrchestrator,
+    AgentToolExecutor,
+    ClarificationAgent,
+    ConfirmationAgent,
+    ExtractionAgent,
+    IntentClassifier,
+    SynthesisAgent,
+)
 from src.service.scorer import ScoringService, ScoringConfig
 
 import psycopg_pool
@@ -136,13 +144,23 @@ class Application:
             model=settings.yandex_model,
         )
 
-        self.scorer = ScoringService(embedder=self.embedder, repository=self.repository, config=ScoringConfig())
+        self.scorer = ScoringService(
+            embedder=self.embedder, repository=self.repository, config=ScoringConfig()
+        )
 
-        self.agent = RankingAgent(
-            llm=self.llm,
-            geocoder=self.geocoder,
+        tool_executor = AgentToolExecutor(
+            provider_repo=self.repository,
             scorer=self.scorer,
+            geocoder=self.geocoder,
+        )
+
+        self.agent = AgentOrchestrator(
             chat_repo=self.chat_repo,
+            intent=IntentClassifier(llm=self.llm),
+            extraction=ExtractionAgent(llm=self.llm),
+            clarification=ClarificationAgent(llm=self.llm),
+            confirmation=ConfirmationAgent(llm=self.llm),
+            synthesis=SynthesisAgent(llm=self.llm, tool_executor=tool_executor),
         )
 
         self.chat_service = ChatService(

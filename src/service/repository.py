@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from src.models import Service, ServicePackage
+from src.models import Provider, Service, ServicePackage
 from src.models.service_package import RegionCoord
 
 

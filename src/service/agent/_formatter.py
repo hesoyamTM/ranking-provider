@@ -37,10 +37,10 @@ def service_to_dict(item: ScoredService) -> dict[str, Any]:
         "monthly_price_rub": round(monthly_price(price, svc.price_unit), 2),
         "regions": svc.regions,
         "_internal_scores": {
-            "final": round(item.final_score, 4),
-            "semantic": round(item.components.semantic, 4),
-            "proximity": round(item.components.proximity, 4),
-            "tags": round(item.components.tags, 4),
+            "final": round(item.score.final_score, 4),
+            "semantic": round(item.score.semantic, 4),
+            "proximity": round(item.score.proximity, 4),
+            "tags": round(item.score.tags, 4),
         },
         "_internal_tags": {
             "tech": svc.tech_tags,
@@ -57,17 +57,17 @@ def group_by_provider(items: list[ScoredService]) -> list[dict[str, Any]]:
 
     ranked = sorted(
         groups.items(),
-        key=lambda kv: max(s.final_score for s in kv[1]),
+        key=lambda kv: max(s.score.final_score for s in kv[1]),
         reverse=True,
     )
 
     result: list[dict[str, Any]] = []
     for provider_name, svcs in ranked[:TOP_PROVIDERS]:
-        best = sorted(svcs, key=lambda s: s.final_score, reverse=True)
+        best = sorted(svcs, key=lambda s: s.score.final_score, reverse=True)
         result.append(
             {
                 "provider": provider_name,
-                "_internal_top_score": round(best[0].final_score, 4),
+                "_internal_top_score": round(best[0].score.final_score, 4),
                 "services": [service_to_dict(s) for s in best[:TOP_SERVICES_PER_PROVIDER]],
             }
         )
@@ -91,12 +91,12 @@ def group_plan_by_provider(
 
     for comp_map in provider_map.values():
         for name in comp_map:
-            comp_map[name].sort(key=lambda s: s.final_score, reverse=True)
+            comp_map[name].sort(key=lambda s: s.score.final_score, reverse=True)
 
     def _rank_key(kv: tuple[str, dict[str, list[ScoredService]]]) -> tuple[int, float]:
         _, comp_map = kv
         coverage = len(comp_map)
-        avg_top = sum(svcs[0].final_score for svcs in comp_map.values() if svcs) / max(coverage, 1)
+        avg_top = sum(svcs[0].score.final_score for svcs in comp_map.values() if svcs) / max(coverage, 1)
         return (coverage, avg_top)
 
     ranked = sorted(provider_map.items(), key=_rank_key, reverse=True)
@@ -105,7 +105,7 @@ def group_plan_by_provider(
     total_components = len(component_results)
     for provider_name, comp_map in ranked[:TOP_PROVIDERS]:
         coverage = len(comp_map)
-        avg_top = sum(svcs[0].final_score for svcs in comp_map.values() if svcs) / max(coverage, 1)
+        avg_top = sum(svcs[0].score.final_score for svcs in comp_map.values() if svcs) / max(coverage, 1)
         result.append(
             {
                 "provider": provider_name,

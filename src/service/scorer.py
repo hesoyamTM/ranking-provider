@@ -52,7 +52,8 @@ class ScoringService:
             score: Score = Score(
                 semantic=r.score,
                 tags=tag_score,
-                final_score=tag_score * self._config.tag_weight + r.score * self._config.semantic_weight
+                final_score=tag_score * self._config.tag_weight
+                + r.score * self._config.semantic_weight,
             )
             scored.append(
                 ScoredService(
@@ -74,7 +75,7 @@ class ScoringService:
         scored.sort(key=lambda x: x.score.final_score, reverse=True)
         return scored
 
-    async def rank_by_provider(self, query: UserQuery) -> List[ScoredService]:
+    async def rank_by_providers(self, query: UserQuery) -> List[ScoredService]:
         return await self._rank(
             query,
             lambda emb: self._repository.search_by_embedding_all_providers(
@@ -82,10 +83,11 @@ class ScoringService:
             ),
         )
 
-    async def rank_top_services(self, query: UserQuery) -> List[ScoredService]:
+    async def rank_by_services(self, query: UserQuery) -> List[ScoredService]:
         return await self._rank(
             query,
             lambda emb: self._repository.search_by_embedding_top_services(
                 query_embedding=emb,
             ),
         )
+

@@ -9,6 +9,7 @@ class Score:
     semantic: float
     tags: float
     final_score: float
+    proximity: float = 0.0
 
 @dataclass(frozen=True, slots=True)
 class ScoredService:

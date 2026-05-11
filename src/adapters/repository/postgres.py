@@ -22,9 +22,17 @@ class PostgresServiceRepository:
     @staticmethod
     def _row_to_service_dto(row) -> ServiceDTO:
         (
-            provider_id, service_id, category, name, description,
-            pricing_model, price_from_rub, price_unit,
-            compliance_tags, tech_tags, score,
+            provider_id,
+            service_id,
+            category,
+            name,
+            description,
+            pricing_model,
+            price_from_rub,
+            price_unit,
+            compliance_tags,
+            tech_tags,
+            score,
         ) = row
         return ServiceDTO(
             provider_id=provider_id,
@@ -52,7 +60,12 @@ class PostgresServiceRepository:
                 regions = EXCLUDED.regions,
                 updated_at = NOW()
             """,
-            (provider.provider_id, provider.name, provider.base_platform, provider.regions),
+            (
+                provider.provider_id,
+                provider.name,
+                provider.base_platform,
+                provider.regions,
+            ),
         )
 
     @staticmethod
@@ -115,8 +128,12 @@ class PostgresServiceRepository:
             for service in package.services:
                 vec = embeddings.get(service.service_id)
                 if vec is None:
-                    raise ValueError(f"Missing embedding for service {service.service_id}")
-                await self._upsert_service(cur, package.provider.provider_id, service, vec)
+                    raise ValueError(
+                        f"Missing embedding for service {service.service_id}"
+                    )
+                await self._upsert_service(
+                    cur, package.provider.provider_id, service, vec
+                )
             await conn.commit()
 
     async def upsert_service(
@@ -129,7 +146,27 @@ class PostgresServiceRepository:
             await self._upsert_service(cur, provider_id, service, embedding)
             await conn.commit()
 
-    async def search_by_embedding_top_services(
+    async def list_providers(self) -> list[Provider]:
+        async with await self._connect() as conn, conn.cursor() as cur:
+            await cur.execute(
+                """
+                SELECT provider_id, name, base_platform, regions
+                FROM providers
+                ORDER BY provider_id
+                """
+            )
+            rows = await cur.fetchall()
+            return [
+                Provider(
+                    provider_id=provider_id,
+                    name=name,
+                    base_platform=base_platform or "",
+                    regions=regions or [],
+                )
+                for (provider_id, name, base_platform, regions) in rows
+            ]
+
+    async def search_by_embedding(
         self,
         query_embedding: list[float],
         top_k: int = 5,
@@ -157,6 +194,13 @@ class PostgresServiceRepository:
             )
             rows = await cur.fetchall()
             return [self._row_to_service_dto(row) for row in rows]
+
+    async def search_by_embedding_top_services(
+        self,
+        query_embedding: list[float],
+        top_k: int = 10,
+    ) -> list[ServiceDTO]:
+        return await self.search_by_embedding(query_embedding, top_k=top_k)
 
     async def search_by_embedding_all_providers(
         self,
@@ -205,3 +249,4 @@ class PostgresServiceRepository:
             )
             rows = await cur.fetchall()
             return [self._row_to_service_dto(row) for row in rows]
+

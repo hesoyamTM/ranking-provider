@@ -4,14 +4,14 @@ import uuid
 from typing import AsyncGenerator
 
 from src.models.agent import Message
+from src.service.agent.orchestrator import AgentOrchestrator
 from src.service.agent.protocols import ChatRepository
-from src.service.agent.ranking_agent import RankingAgent
 
 
 class ChatService:
     """Сервис для работы с чатами и отправки сообщений агенту."""
 
-    def __init__(self, chat_repo: ChatRepository, agent: RankingAgent) -> None:
+    def __init__(self, chat_repo: ChatRepository, agent: AgentOrchestrator) -> None:
         self._chat_repo = chat_repo
         self._agent = agent
 
@@ -37,4 +37,4 @@ class ChatService:
         text: str,
     ) -> AsyncGenerator[str, None]:
         """Отправить сообщение агенту и вернуть стриминговый ответ."""
-        return self._agent.run(chat_id, user_id, text)
+        return self._agent.send_message(chat_id, user_id, text)

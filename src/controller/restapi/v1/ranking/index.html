@@ -390,10 +390,37 @@
             30% { transform: translateY(-4px); opacity: 1; }
         }
 
+        /* ── Suggestions ─────────────────────────────────────── */
+        .suggestions {
+            max-width: 820px;
+            margin: 0 auto 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 0 2px;
+        }
+
+        .suggestion-chip {
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--c-primary);
+            background: var(--c-primary-light);
+            color: var(--c-primary-darker);
+            font-family: inherit;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.12s, color 0.12s;
+            white-space: nowrap;
+        }
+        .suggestion-chip:hover {
+            background: var(--c-primary);
+            color: #fff;
+        }
+
         /* ── Composer ────────────────────────────────────────── */
         .composer {
             border-top: 1px solid var(--c-border);
-            padding: 14px 28px 18px;
+            padding: 8px 28px 18px;
             background: var(--c-bg);
         }
 
@@ -510,6 +537,7 @@
         </div>
 
         <div class="composer">
+            <div class="suggestions" id="suggestions" style="display:none;"></div>
             <div class="composer-inner">
                 <textarea id="input" placeholder="Опишите задачу или требования к провайдеру..." rows="1" disabled></textarea>
                 <button class="send-btn" id="send-btn" disabled title="Отправить">
@@ -531,14 +559,17 @@
         sending: false,
     };
 
-    const $list       = document.getElementById("chat-list");
-    const $empty      = document.getElementById("empty-list");
-    const $newChatBtn = document.getElementById("new-chat-btn");
-    const $messages   = document.getElementById("messages");
-    const $input      = document.getElementById("input");
-    const $sendBtn    = document.getElementById("send-btn");
-    const $title      = document.getElementById("main-title");
-    const $sub        = document.getElementById("main-sub");
+    const $list        = document.getElementById("chat-list");
+    const $empty       = document.getElementById("empty-list");
+    const $newChatBtn  = document.getElementById("new-chat-btn");
+    const $messages    = document.getElementById("messages");
+    const $input       = document.getElementById("input");
+    const $sendBtn     = document.getElementById("send-btn");
+    const $title       = document.getElementById("main-title");
+    const $sub         = document.getElementById("main-sub");
+    const $suggestions = document.getElementById("suggestions");
+
+    const SUGGESTIONS_MARKER = "__SUGGESTIONS__:";
 
     function shortId(id) { return id.split("-")[0]; }
 
@@ -621,6 +652,30 @@
         $messages.scrollTop = $messages.scrollHeight;
     }
 
+    function clearSuggestions() {
+        $suggestions.innerHTML = "";
+        $suggestions.style.display = "none";
+    }
+
+    function showSuggestions(items) {
+        clearSuggestions();
+        if (!items || items.length === 0) return;
+        items.forEach(label => {
+            const chip = document.createElement("button");
+            chip.className = "suggestion-chip";
+            chip.textContent = label;
+            chip.onclick = () => {
+                $input.value = label;
+                autoresize();
+                $sendBtn.disabled = false;
+                clearSuggestions();
+                $input.focus();
+            };
+            $suggestions.appendChild(chip);
+        });
+        $suggestions.style.display = "flex";
+    }
+
     async function loadChats() {
         try {
             const res = await fetch(API_BASE, { credentials: "include" });
@@ -648,6 +703,7 @@
     async function openChat(chatId) {
         state.activeChatId = chatId;
         renderChatList();
+        clearSuggestions();
         $title.textContent = `Чат · ${shortId(chatId)}`;
         $sub.textContent = "Общение с агентом ранжирования провайдеров";
         $messages.innerHTML = "";
@@ -675,6 +731,19 @@
         $input.focus();
     }
 
+    function extractSuggestions(raw) {
+        // Split off __SUGGESTIONS__:{...} marker appended at the end of the stream.
+        const markerIdx = raw.indexOf("\n" + SUGGESTIONS_MARKER);
+        if (markerIdx === -1) return { text: raw, suggestions: null };
+        const jsonStr = raw.slice(markerIdx + 1 + SUGGESTIONS_MARKER.length).trim();
+        const text = raw.slice(0, markerIdx);
+        try {
+            return { text, suggestions: JSON.parse(jsonStr) };
+        } catch (_) {
+            return { text, suggestions: null };
+        }
+    }
+
     async function sendMessage() {
         const text = $input.value.trim();
         if (!text || !state.activeChatId || state.sending) return;
@@ -682,6 +751,7 @@
         state.sending = true;
         $input.value = "";
         autoresize();
+        clearSuggestions();
         setComposerEnabled(false);
 
         const inner = ensureMessagesContainer();
@@ -709,9 +779,17 @@
                 const { value, done } = await reader.read();
                 if (done) break;
                 acc += decoder.decode(value, { stream: true });
-                typingBubble.innerHTML = marked.parse(acc);
+                // Render without suggestions marker so it doesn't flash in the bubble.
+                const { text: visibleText } = extractSuggestions(acc);
+                typingBubble.innerHTML = marked.parse(visibleText);
                 scrollToBottom();
             }
+
+            // Final pass: extract suggestions and show chips.
+            const { text: finalText, suggestions } = extractSuggestions(acc);
+            typingBubble.innerHTML = marked.parse(finalText);
+            if (suggestions) showSuggestions(suggestions);
+
             typingWrap.id = "";
         } catch (e) {
             console.error(e);

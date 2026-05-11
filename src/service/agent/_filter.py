@@ -67,8 +67,8 @@ def validate_and_filter(
     dropped_invalid = 0
 
     for item in ranked:
-        score = item.final_score
-        comp = item.components
+        score = item.score.final_score
+        comp = item.score
 
         if not (
             math.isfinite(score)
@@ -93,11 +93,11 @@ def validate_and_filter(
 
     kept = kept[:TOP_K_RETURN]
 
-    top_score = kept[0].final_score if kept else 0.0
-    avg_score = sum(it.final_score for it in kept) / len(kept) if kept else 0.0
+    top_score = kept[0].score.final_score if kept else 0.0
+    avg_score = sum(it.score.final_score for it in kept) / len(kept) if kept else 0.0
 
     if required_tags and kept:
-        tag_coverage = sum(1 for it in kept if it.components.tags > 0.0) / len(kept)
+        tag_coverage = sum(1 for it in kept if it.score.tags > 0.0) / len(kept)
     else:
         tag_coverage = 1.0
 
