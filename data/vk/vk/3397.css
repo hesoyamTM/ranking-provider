@@ -1,0 +1,35 @@
+:root, :root {
+    --AuthFormWhite: #FFFFFF;
+    --AuthFormRed: #FC2C38;
+    --AuthFormTurquoise: #00EAFF;
+    --AuthFormGrey: #E8EAED;
+    --AuthFormDarkGrey: #818C99;
+    --AuthFormBonusesColor: #f7f8fa;
+
+    --AuthFormBgAccentLinxdatacenter: #FF006E;
+    --AuthFormBgAccentLinxdatacenterHover: #009BFF;
+
+    --AuthFormBgLinxdatacenter: #001F73;
+    --AuthFormLinkBlueLinxdatacenter: #2A73D5;
+
+    --AuthFormMegafonPurple: #731982;
+    --AuthFormMegafonWhite: #FFFFFF;
+
+    --AuthFormRcloudBlue: #41A1F3;
+    --AuthFormRcloudWhite: #FFFFFF;
+
+    --AuthFormAtomdataBlue: #005EB8;
+    --AuthFormAtomdataWhite: #FFFFFF;
+
+    --AuthFormGoznakRed: #DC1B36;
+
+    --AuthForm1CRed: #FC2C38;
+
+    --AuthFormPositiveTechnologiesBlack: #212121;
+
+    --AuthFormDividerGrey: var(--AuthFormGrey);
+    --AuthFormSecondaryText: var(--AuthFormDarkGrey);
+}
+
+
+/*# sourceMappingURL=3397.css.map*/
