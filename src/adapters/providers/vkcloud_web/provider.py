@@ -1,12 +1,9 @@
 from __future__ import annotations
-
 import logging
 import re
-from decimal import Decimal, InvalidOperation
-
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import httpx
 from bs4 import BeautifulSoup
-
 from src.models import Provider, Service, ServicePackage
 
 logger = logging.getLogger(__name__)
@@ -14,19 +11,11 @@ logger = logging.getLogger(__name__)
 _URL = "https://cloud.vk.com/pricelist/"
 
 _CATEGORY_RULES: tuple[tuple[str, str], ...] = (
-    ("cloud servers", "Compute"),
-    ("виртуальные серверы", "Compute"),
-    ("gpu", "GPUaaS"),
-    ("object storage", "Storage"),
-    ("s3", "Storage"),
-    ("kubernetes", "DevOps"),
-    ("базы данных", "Database"),
-    ("databases", "Database"),
-    ("backup", "Backup"),
-    ("бэкап", "Backup"),
-    ("cdn", "CDN"),
-    ("ddos", "Security"),
-    ("балансировщик", "Networking"),
+    ("cloud servers", "Compute"), ("виртуальные серверы", "Compute"),
+    ("gpu", "GPUaaS"), ("object storage", "Storage"), ("s3", "Storage"),
+    ("kubernetes", "DevOps"), ("базы данных", "Database"), ("databases", "Database"),
+    ("backup", "Backup"), ("бэкап", "Backup"), ("cdn", "CDN"),
+    ("ddos", "Security"), ("балансировщик", "Networking"),
 )
 
 class VkCloudWebProvider:
@@ -35,24 +24,11 @@ class VkCloudWebProvider:
         self._http_timeout = 30.0
 
     async def fetch(self) -> ServicePackage:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (provider-ranking-agent/1.0)",
-            "Accept": "text/html,application/xhtml+xml,xml;q=0.9,image/avif,webp,*/*;q=0.8",
-        }
-
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(self._http_timeout),
-            headers=headers,
-            follow_redirects=True,
-            verify=False
-        ) as http:
+        headers = {"User-Agent": "Mozilla/5.0 (provider-ranking-agent/1.0)"}
+        async with httpx.AsyncClient(timeout=httpx.Timeout(self._http_timeout), headers=headers, follow_redirects=True, verify=False) as http:
             response = await http.get(_URL)
             response.raise_for_status()
-            html = response.text
-
-        services = self._parse_html_tables(html)
-
-        logger.info("VK Cloud: produced %d unique service(s)", len(services))
+            services = self._parse_html_tables(response.text)
         return ServicePackage(provider=self._defaults, services=services)
 
     def _parse_html_tables(self, html: str) -> list[Service]:
@@ -60,51 +36,62 @@ class VkCloudWebProvider:
         services: list[Service] = []
         seen_ids: set[str] = set()
 
-        for row in soup.find_all("tr"):
-            cells = row.find_all("td")
-            if len(cells) < 3:
-                continue
+        for table in soup.find_all("table"):
+            section_header = table.find_previous(["h2", "h3", "h1"])
+            section_name = section_header.get_text(strip=True) if section_header else "Облачные услуги"
+            section_name = section_name.replace("Цены на ", "").strip()
 
-            name = cells[0].get_text(strip=True)
-            parameter = cells[1].get_text(strip=True)
-            price_raw = cells[-1].get_text(strip=True)
+            for row in table.find_all("tr"):
+                cells = row.find_all("td")
 
-            if not any(k in f"{name} {parameter}".lower() for k in ["vcpu", "ram", "гб", "₽"]):
-                continue
+                if len(cells) < 2:
+                    continue
 
-            price = self._clean_price(price_raw)
-            if price == 0: continue
+                name = cells[0].get_text(strip=True)
+                parameter = cells[1].get_text(strip=True)
 
-            service_id = f"vk-{re.sub(r'[^a-zA-Z0-9]', '', name).lower()}"
-            if service_id in seen_ids: continue
+                price_raw = cells[-1].get_text(strip=True)
 
-            category = self._guess_category(name)
+                if not any(k in f"{name} {parameter} {price_raw}".lower() for k in ["vcpu", "ram", "гб", "₽", "шт"]):
+                    continue
 
-            services.append(Service(
-                service_id=service_id,
-                category=category,
-                name=f"{name} ({parameter})",
-                description=f"Тариф VK Cloud: {name}, ресурс {parameter}",
-                pricing_model="per-hour",
-                price_from_rub=price,
-                price_unit="₽",
-                tech_tags=["vk-cloud"],
-                regions=list(self._defaults.regions) or ["Москва"],
-            ))
-            seen_ids.add(service_id)
+                price = self._clean_price(price_raw)
+                if price <= 0:
+                    continue
 
+                slug = re.sub(r'[^a-z0-9]', '', (name + parameter).lower())
+                service_id = f"vk-{slug[:30]}"
+
+                if service_id in seen_ids:
+                    continue
+
+                p_model = "per-month" if "30 дн" in table.get_text().lower() else "per-unit"
+
+                services.append(Service(
+                    service_id=service_id,
+                    category=self._guess_category(name),
+                    name=name,
+                    description=f"{section_name}: {name}, ресурс {parameter}",
+                    pricing_model=p_model,
+                    price_from_rub=price,
+                    price_unit="₽",
+                    tech_tags=["vk-cloud"],
+                    regions=list(self._defaults.regions) or ["Москва"],
+                ))
+                seen_ids.add(service_id)
         return services
+
+    def _clean_price(self, price_str: str) -> Decimal:
+        cleaned = price_str.replace(',', '.').replace('\xa0', '').replace(' ', '')
+        cleaned = re.sub(r'[^0-9.]', '', cleaned)
+        try:
+            if not cleaned: return Decimal("0")
+            return Decimal(cleaned).quantize(Decimal('0.000001'), rounding=ROUND_HALF_UP).normalize()
+        except InvalidOperation:
+            return Decimal("0")
 
     def _guess_category(self, name: str) -> str:
         lower_name = name.lower()
         for needle, category in _CATEGORY_RULES:
-            if needle in lower_name:
-                return category
+            if needle in lower_name: return category
         return "Compute"
-
-    def _clean_price(self, price_str: str) -> Decimal:
-        cleaned = re.sub(r'[^\d]', '', price_str)
-        try:
-            return Decimal(cleaned) if cleaned else Decimal("0")
-        except InvalidOperation:
-            return Decimal("0")
