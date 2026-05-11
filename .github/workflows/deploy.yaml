@@ -55,9 +55,9 @@ jobs:
             set -euo pipefail
             cd ~
             sed -i -E "s|image: ${IMAGE}:.*|image: ${IMAGE}:${TAG}|g" compose.yaml
-            docker compose pull
-            docker compose up -d --remove-orphans
-            docker image prune -f
+            sudo docker compose pull
+            sudo docker compose up -d --remove-orphans
+            sudo docker image prune -f
         env:
           IMAGE: ${{ env.IMAGE }}
           TAG: ${{ needs.build.outputs.tag }}
