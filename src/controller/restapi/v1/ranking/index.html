@@ -390,14 +390,54 @@
             30% { transform: translateY(-4px); opacity: 1; }
         }
 
+        /* ── Status line ─────────────────────────────────────── */
+        .status-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--c-text-muted);
+            padding: 4px 0 2px;
+        }
+        .status-spinner {
+            width: 12px;
+            height: 12px;
+            border: 2px solid var(--c-border);
+            border-top-color: var(--c-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            flex-shrink: 0;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         /* ── Suggestions ─────────────────────────────────────── */
         .suggestions {
             max-width: 820px;
             margin: 0 auto 8px;
             display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 0 2px;
+        }
+
+        .suggestion-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .suggestion-group-label {
+            font-size: 12px;
+            color: var(--c-text-muted);
+            padding-left: 4px;
+        }
+
+        .suggestion-chips {
+            display: flex;
             flex-wrap: wrap;
             gap: 6px;
-            padding: 0 2px;
         }
 
         .suggestion-chip {
@@ -570,6 +610,7 @@
     const $suggestions = document.getElementById("suggestions");
 
     const SUGGESTIONS_MARKER = "__SUGGESTIONS__:";
+    const STATUS_MARKER      = "__STATUS__:";
 
     function shortId(id) { return id.split("-")[0]; }
 
@@ -657,23 +698,70 @@
         $suggestions.style.display = "none";
     }
 
-    function showSuggestions(items) {
+    function appendAnswer(question, answer) {
+        // Существующий текст в инпуте сохраняем, чтобы можно было собрать
+        // ответ сразу на несколько вопросов: "<вопрос1> <ответ1>\n<вопрос2> <ответ2>".
+        const prefix = $input.value.trim();
+        const line = `${question} ${answer}`;
+        $input.value = prefix ? `${prefix}\n${line}` : line;
+    }
+
+    function showSuggestions(groups) {
         clearSuggestions();
-        if (!items || items.length === 0) return;
-        items.forEach(label => {
-            const chip = document.createElement("button");
-            chip.className = "suggestion-chip";
-            chip.textContent = label;
-            chip.onclick = () => {
-                $input.value = label;
-                autoresize();
-                $sendBtn.disabled = false;
-                clearSuggestions();
-                $input.focus();
-            };
-            $suggestions.appendChild(chip);
+        if (!groups || groups.length === 0) return;
+
+        // Обратная совместимость: если пришёл плоский массив строк — обернём в одну группу.
+        const normalized = (typeof groups[0] === "string")
+            ? [{ question: "", suggestions: groups }]
+            : groups;
+
+        normalized.forEach(group => {
+            const question = group.question || "";
+            const items = group.suggestions || [];
+            if (items.length === 0) return;
+
+            const groupEl = document.createElement("div");
+            groupEl.className = "suggestion-group";
+
+            if (question) {
+                const label = document.createElement("div");
+                label.className = "suggestion-group-label";
+                label.textContent = question;
+                groupEl.appendChild(label);
+            }
+
+            const chips = document.createElement("div");
+            chips.className = "suggestion-chips";
+            items.forEach(value => {
+                const chip = document.createElement("button");
+                chip.className = "suggestion-chip";
+                chip.textContent = value;
+                chip.onclick = () => {
+                    if (question) {
+                        appendAnswer(question, value);
+                    } else {
+                        $input.value = value;
+                    }
+                    autoresize();
+                    $sendBtn.disabled = false;
+                    // Скрываем только сработавшую группу, оставляем остальные,
+                    // чтобы пользователь мог ответить сразу на несколько вопросов.
+                    groupEl.remove();
+                    if (!$suggestions.querySelector(".suggestion-group")) {
+                        clearSuggestions();
+                    }
+                    $input.focus();
+                };
+                chips.appendChild(chip);
+            });
+
+            groupEl.appendChild(chips);
+            $suggestions.appendChild(groupEl);
         });
-        $suggestions.style.display = "flex";
+
+        if ($suggestions.querySelector(".suggestion-group")) {
+            $suggestions.style.display = "flex";
+        }
     }
 
     async function loadChats() {
@@ -731,6 +819,21 @@
         $input.focus();
     }
 
+    // Убираем все __STATUS__:... строки из текста и возвращаем последний статус.
+    function extractStatuses(raw) {
+        const lines = raw.split("\n");
+        const clean = [];
+        let lastStatus = null;
+        for (const line of lines) {
+            if (line.startsWith(STATUS_MARKER)) {
+                lastStatus = line.slice(STATUS_MARKER.length).trim();
+            } else {
+                clean.push(line);
+            }
+        }
+        return { text: clean.join("\n"), lastStatus };
+    }
+
     function extractSuggestions(raw) {
         // Split off __SUGGESTIONS__:{...} marker appended at the end of the stream.
         const markerIdx = raw.indexOf("\n" + SUGGESTIONS_MARKER);
@@ -742,6 +845,18 @@
         } catch (_) {
             return { text, suggestions: null };
         }
+    }
+
+    function setStatusLine(bubble, text) {
+        let el = bubble.querySelector(".status-line");
+        if (!text) { if (el) el.remove(); return; }
+        if (!el) {
+            el = document.createElement("div");
+            el.className = "status-line";
+            el.innerHTML = '<div class="status-spinner"></div><span></span>';
+            bubble.prepend(el);
+        }
+        el.querySelector("span").textContent = text;
     }
 
     async function sendMessage() {
@@ -779,14 +894,28 @@
                 const { value, done } = await reader.read();
                 if (done) break;
                 acc += decoder.decode(value, { stream: true });
-                // Render without suggestions marker so it doesn't flash in the bubble.
-                const { text: visibleText } = extractSuggestions(acc);
-                typingBubble.innerHTML = marked.parse(visibleText);
+
+                // Strip status and suggestion markers before rendering.
+                const { text: noStatus, lastStatus } = extractStatuses(acc);
+                const { text: visibleText } = extractSuggestions(noStatus);
+
+                const hasRealText = visibleText.trim().length > 0;
+                if (hasRealText) {
+                    // Real content arrived — remove status, render markdown.
+                    setStatusLine(typingBubble, null);
+                    typingBubble.innerHTML = marked.parse(visibleText);
+                } else if (lastStatus) {
+                    // Still in tool-loop phase — show spinner + status.
+                    typingBubble.innerHTML = "";
+                    setStatusLine(typingBubble, lastStatus);
+                }
                 scrollToBottom();
             }
 
             // Final pass: extract suggestions and show chips.
-            const { text: finalText, suggestions } = extractSuggestions(acc);
+            const { text: noStatusFinal } = extractStatuses(acc);
+            const { text: finalText, suggestions } = extractSuggestions(noStatusFinal);
+            setStatusLine(typingBubble, null);
             typingBubble.innerHTML = marked.parse(finalText);
             if (suggestions) showSuggestions(suggestions);
 

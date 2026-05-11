@@ -6,7 +6,7 @@ from typing import AsyncGenerator
 
 from src.models.agent import Message, Role
 from src.models.session import SessionState
-from src.service.agent._taxonomy import hint_for, suggestions_for_missing
+from src.service.agent._taxonomy import hint_for, suggestions_per_field
 from src.service.agent.prompts import load_prompt
 from src.service.agent.protocols import LLMClient
 
@@ -21,7 +21,8 @@ class ClarificationAgent:
         self._prompt = load_prompt("clarification")
 
     async def stream(self, state: SessionState) -> AsyncGenerator[str, None]:
-        payload = self._build_payload(state)
+        budget_missing = self._budget_missing(state)
+        payload = self._build_payload(state, budget_missing)
         messages = [
             Message(role=Role.SYSTEM, content=self._prompt),
             Message(role=Role.USER, content=payload),
@@ -34,18 +35,32 @@ class ClarificationAgent:
             yield chunk
 
         # Collect all missing fields across components for suggestions.
+        # Бюджет — приоритетный вопрос: если он не задан, выносим его в начало списка.
         all_missing: list[str] = []
+        if budget_missing:
+            all_missing.append("budget")
         for c in state.components:
             for f in c.missing:
                 if f not in all_missing:
                     all_missing.append(f)
 
-        suggestions = suggestions_for_missing(all_missing)
-        if suggestions:
-            yield f"\n__SUGGESTIONS__:{json.dumps(suggestions, ensure_ascii=False)}\n"
+        groups = suggestions_per_field(all_missing)
+        if groups:
+            yield f"\n__SUGGESTIONS__:{json.dumps(groups, ensure_ascii=False)}\n"
 
     @staticmethod
-    def _build_payload(state: SessionState) -> str:
+    def _budget_missing(state: SessionState) -> bool:
+        if state.max_budget_total_rub is not None:
+            return False
+        # Если по каждому компоненту бюджет задан индивидуально — общий не нужен.
+        if state.components and all(
+            c.max_budget_rub is not None for c in state.components
+        ):
+            return False
+        return True
+
+    @staticmethod
+    def _build_payload(state: SessionState, budget_missing: bool) -> str:
         components_view = []
         for c in state.components:
             components_view.append(
@@ -63,6 +78,7 @@ class ClarificationAgent:
                 "components": components_view,
                 "global_location": state.location_name,
                 "global_budget_rub": state.max_budget_total_rub,
+                "budget_missing": budget_missing,
             },
             ensure_ascii=False,
             indent=2,

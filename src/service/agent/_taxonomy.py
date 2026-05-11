@@ -53,6 +53,7 @@ FIELD_HINTS: dict[str, str] = {
     "nodes_count": "сколько узлов в кластере",
     "gpu_type": "тип GPU (A100, V100, T4 и т.п.)",
     "vram_gb": "сколько VRAM (ГБ) на одну карту",
+    "budget": "какой бюджет в рублях за месяц",
 }
 
 
@@ -85,6 +86,7 @@ FIELD_SUGGESTIONS: dict[str, list[str]] = {
     "nodes_count": ["1 узел", "3 узла", "5 узлов", "10 узлов"],
     "gpu_type": ["T4", "A10", "A100", "V100"],
     "vram_gb": ["16 ГБ", "24 ГБ", "40 ГБ", "80 ГБ"],
+    "budget": ["5 000 ₽/мес", "15 000 ₽/мес", "50 000 ₽/мес", "100 000 ₽/мес"],
 }
 
 
@@ -95,3 +97,25 @@ def suggestions_for_missing(missing_fields: list[str]) -> list[str]:
         if opts:
             return opts
     return []
+
+
+def suggestions_per_field(missing_fields: list[str]) -> list[dict]:
+    """Группы вариантов ответа — по одной на каждый missing-вопрос.
+
+    Возвращает список объектов вида:
+        {"field": "vcpu", "question": "сколько vCPU нужно", "suggestions": [...]}.
+    Поля, для которых нет ни подсказки, ни вариантов, пропускаются.
+    """
+    groups: list[dict] = []
+    for field in missing_fields:
+        opts = FIELD_SUGGESTIONS.get(field)
+        if not opts:
+            continue
+        groups.append(
+            {
+                "field": field,
+                "question": hint_for(field),
+                "suggestions": opts,
+            }
+        )
+    return groups

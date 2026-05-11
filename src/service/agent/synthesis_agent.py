@@ -63,11 +63,13 @@ class SynthesisAgent:
             max_rounds,
         )
 
-        messages = await self._tools.run_tool_loop(
-            self._llm, messages, temperature=0.1, max_rounds=max_rounds
-        )
+        out_messages: list[Message] = []
+        async for status in self._tools.run_tool_loop_with_status(
+            self._llm, messages, out_messages, temperature=0.1, max_rounds=max_rounds
+        ):
+            yield f"__STATUS__:{status}\n"
 
         logger.info("SynthesisAgent: tool loop завершён, стримим синтез")
 
-        async for chunk in self._llm.stream(messages, temperature=0.4):
+        async for chunk in self._llm.stream(out_messages, temperature=0.4):
             yield chunk

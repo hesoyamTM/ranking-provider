@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import json
 import uuid
+
 import psycopg_pool
-from src.models.agent import Message, Role, MessageToolCall
+
+from src.models.agent import Message, MessageToolCall, Role
+from src.models.session import SessionState
 
 
 class PostgresChatRepository:
@@ -100,5 +104,47 @@ class PostgresChatRepository:
             async with conn.cursor() as cur:
                 await cur.execute(
                     "DELETE FROM chats WHERE id = %s AND user_id = %s",
+                    (chat_id, user_id),
+                )
+
+    async def get_session_state(
+        self, chat_id: uuid.UUID, user_id: uuid.UUID
+    ) -> SessionState | None:
+        async with self._pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT state FROM session_states WHERE chat_id = %s AND user_id = %s",
+                    (chat_id, user_id),
+                )
+                row = await cur.fetchone()
+                if row is None:
+                    return None
+                data = row[0]
+                if isinstance(data, str):
+                    data = json.loads(data)
+                return SessionState.model_validate(data)
+
+    async def save_session_state(
+        self, chat_id: uuid.UUID, user_id: uuid.UUID, state: SessionState
+    ) -> None:
+        async with self._pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    INSERT INTO session_states (chat_id, user_id, state, updated_at)
+                    VALUES (%s, %s, %s, NOW())
+                    ON CONFLICT (chat_id, user_id)
+                    DO UPDATE SET state = EXCLUDED.state, updated_at = NOW()
+                    """,
+                    (chat_id, user_id, json.dumps(state.model_dump(), ensure_ascii=False)),
+                )
+
+    async def clear_session_state(
+        self, chat_id: uuid.UUID, user_id: uuid.UUID
+    ) -> None:
+        async with self._pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "DELETE FROM session_states WHERE chat_id = %s AND user_id = %s",
                     (chat_id, user_id),
                 )

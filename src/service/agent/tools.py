@@ -179,6 +179,12 @@ class AgentToolExecutor:
             target_lon=lon,
         )
 
+    _STATUS: ClassVar[dict[str, str]] = {
+        TOOL_GET_PROVIDERS:    "Получаю список провайдеров...",
+        TOOL_RANK_BY_SERVICES: "Ищу подходящие услуги...",
+        TOOL_RANK_BY_PROVIDERS: "Ранжирую провайдеров...",
+    }
+
     # ── Агентный цикл ─────────────────────────────────────────────────────
 
     async def run_tool_loop(
@@ -194,7 +200,31 @@ class AgentToolExecutor:
         Возвращает полную историю сообщений (входные + ассистент + тул-ответы),
         готовую для передачи в финальный ``stream()``.
         """
+        out: list[Message] = []
+        async for _ in self.run_tool_loop_with_status(
+            llm, messages, out, temperature=temperature, max_rounds=max_rounds
+        ):
+            pass
+        return out
+
+    async def run_tool_loop_with_status(
+        self,
+        llm: LLMClient,
+        messages: list[Message],
+        out_messages: list[Message],
+        temperature: float = 0.1,
+        max_rounds: int = 5,
+    ) -> AsyncGenerator[str, None]:
+        """Как run_tool_loop, но дополнительно стримит текстовые статусы.
+
+        Статусы отдаются через ``yield``.
+        Результирующие сообщения записываются в ``out_messages`` (мутация).
+        """
+        from typing import AsyncGenerator as _AG  # noqa: F401 – local import for type hint
+
+        yield "Анализирую задачу..."
         current: list[Message] = list(messages)
+
         for round_num in range(1, max_rounds + 1):
             response = await llm.complete(current, tools=self.TOOLS, temperature=temperature)
 
@@ -207,6 +237,12 @@ class AgentToolExecutor:
                 round_num,
                 [tc.name for tc in response.tool_calls],
             )
+            for tc in response.tool_calls:
+                logger.info(
+                    "AgentToolExecutor: tool_call name=%s args=%s",
+                    tc.name,
+                    json.dumps(tc.arguments, ensure_ascii=False, indent=2),
+                )
 
             current.append(
                 Message(
@@ -224,6 +260,16 @@ class AgentToolExecutor:
             )
 
             for tc in response.tool_calls:
+                status = self._STATUS.get(tc.name, f"Вызываю {tc.name}...")
+                intent = ""
+                if isinstance(tc.arguments, dict):
+                    intent = tc.arguments.get("clean_intent", "")
+                if intent and tc.name != self.TOOL_GET_PROVIDERS:
+                    # Укорачиваем до 40 символов для читаемости
+                    short = intent if len(intent) <= 40 else intent[:37] + "..."
+                    status = status.rstrip("...") + f" для «{short}»..."
+                yield status
+
                 try:
                     result = await self.execute(tc.name, tc.arguments)
                 except ValueError as exc:
@@ -242,4 +288,5 @@ class AgentToolExecutor:
                 "AgentToolExecutor: превышен лимит раундов (%d)", max_rounds
             )
 
-        return current
+        yield "Формирую ответ..."
+        out_messages.extend(current)
