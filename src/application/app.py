@@ -194,7 +194,8 @@ class Application:
         logger.info("Migrations applied")
 
     def _migrate_sync(self) -> None:
-        backend = get_backend(self.settings.postgres_dsn)
+        dsn = self.settings.postgres_dsn.replace("postgresql://", "postgresql+psycopg://", 1)
+        backend = get_backend(dsn)
         migrations = read_migrations(str(self.settings.migrations_dir))
         with backend.lock():
             backend.apply_migrations(backend.to_apply(migrations))
