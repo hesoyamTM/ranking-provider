@@ -81,14 +81,21 @@ class VkCloudWebProvider:
                 seen_ids.add(service_id)
         return services
 
+    _MAX_PRICE = Decimal("1e9")
+
     def _clean_price(self, price_str: str) -> Decimal:
-        cleaned = price_str.replace(',', '.').replace('\xa0', '').replace(' ', '')
-        cleaned = re.sub(r'[^0-9.]', '', cleaned)
+        match = re.search(r'\d[\d\s\u00a0]*(?:[.,]\d+)?', price_str)
+        if not match:
+            return Decimal("0")
+        token = match.group(0).replace('\xa0', '').replace(' ', '').replace(',', '.')
         try:
-            if not cleaned: return Decimal("0")
-            return Decimal(cleaned).quantize(Decimal('0.000001'), rounding=ROUND_HALF_UP).normalize()
+            value = Decimal(token).quantize(Decimal('0.00000001'), rounding=ROUND_HALF_UP)
         except InvalidOperation:
             return Decimal("0")
+        if value >= self._MAX_PRICE:
+            logger.warning("vkcloud: price %s exceeds max bound, skipping", value)
+            return Decimal("0")
+        return value
 
     def _guess_category(self, name: str) -> str:
         lower_name = name.lower()
