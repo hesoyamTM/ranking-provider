@@ -16,13 +16,18 @@ from src.adapters.providers.t1_local import T1LocalCloudProvider
 from src.adapters.providers.t1_web import T1WebCloudProvider
 from src.adapters.providers.vkcloud_web.provider import VkCloudWebProvider
 from src.adapters.providers.yandex_cloud_web import YandexCloudWebProvider
-from src.adapters.repository import PostgresChatRepository, PostgresServiceRepository
+from src.adapters.repository import (
+    PostgresArtifactRepository,
+    PostgresChatRepository,
+    PostgresServiceRepository,
+)
 from src.controller.restapi.v1.ranking.router import get_html_router, get_router
 from src.models import Provider
 from src.service import ChatService, ProviderSyncWorker
 from src.service.agent import (
     AgentOrchestrator,
     AgentToolExecutor,
+    ArtifactExtractor,
     ClarificationAgent,
     ConfirmationAgent,
     ExtractionAgent,
@@ -145,6 +150,7 @@ class Application:
 
         self.repository = PostgresServiceRepository(dsn=settings.postgres_dsn)
         self.chat_repo = PostgresChatRepository(pool=pool)  # type: ignore
+        self.artifact_repo = PostgresArtifactRepository(pool=pool)  # type: ignore
         self.geocoder = NominatimGeocoder()
 
         self.llm = YandexGPTAdapter(
@@ -174,11 +180,14 @@ class Application:
             clarification=ClarificationAgent(llm=self.llm),
             confirmation=ConfirmationAgent(llm=self.llm),
             synthesis=SynthesisAgent(llm=self.llm, tool_executor=tool_executor),
+            artifact_extractor=ArtifactExtractor(llm=self.llm),
+            artifact_repo=self.artifact_repo,
         )
 
         self.chat_service = ChatService(
             chat_repo=self.chat_repo,
             agent=self.agent,
+            artifact_repo=self.artifact_repo,
         )
 
         self.worker = ProviderSyncWorker(

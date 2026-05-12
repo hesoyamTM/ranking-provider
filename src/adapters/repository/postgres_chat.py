@@ -31,7 +31,10 @@ class PostgresChatRepository:
     async def get_chats_by_user(self, user_id: uuid.UUID) -> list[uuid.UUID]:
         async with self._pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT id FROM chats WHERE user_id = %s", (user_id,))
+                await cur.execute(
+                    "SELECT id FROM chats WHERE user_id = %s ORDER BY created_at DESC",
+                    (user_id,),
+                )
                 rows = await cur.fetchall()
                 return [row[0] for row in rows]
 

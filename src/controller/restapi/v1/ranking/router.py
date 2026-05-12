@@ -10,6 +10,9 @@ from pydantic import BaseModel
 _INDEX_HTML_PATH = Path(__file__).parent / "index.html"
 
 from src.controller.restapi.v1.ranking.dto import (
+    ArtifactListResponse,
+    ArtifactResponse,
+    ArtifactSummary,
     ChatCreatedResponse,
     ChatHistoryResponse,
     ChatListResponse,
@@ -106,6 +109,69 @@ def get_router(chat_service: ChatService, agent: RankingAgent) -> APIRouter:
 
         stream = agent.send_message(chat_id, user_id, body.text)
         return StreamingResponse(stream, media_type="text/plain")  # type: ignore
+
+    @router.get("/{chat_id}/artifacts", response_model=ArtifactListResponse)
+    async def list_artifacts(
+        chat_id: uuid.UUID,
+        request: Request,
+        response: Response,
+    ) -> ArtifactListResponse:
+        """Список артефактов по чату (от новых к старым)."""
+        user_id = _resolve_user_id(request, response)
+        artifacts = await chat_service.list_artifacts(chat_id, user_id)
+        return ArtifactListResponse(
+            chat_id=chat_id,
+            artifacts=[
+                ArtifactSummary(
+                    id=a.id,
+                    created_at=a.created_at,
+                    title=a.payload.title,
+                    provider_count=len(a.payload.providers),
+                )
+                for a in artifacts
+            ],
+        )
+
+    @router.get(
+        "/{chat_id}/artifacts/latest",
+        response_model=ArtifactResponse,
+    )
+    async def get_latest_artifact(
+        chat_id: uuid.UUID,
+        request: Request,
+        response: Response,
+    ) -> ArtifactResponse:
+        user_id = _resolve_user_id(request, response)
+        artifact = await chat_service.get_latest_artifact(chat_id, user_id)
+        if artifact is None:
+            raise HTTPException(status_code=404, detail="Artifact not found")
+        return ArtifactResponse(
+            id=artifact.id,
+            chat_id=artifact.chat_id,
+            created_at=artifact.created_at,
+            payload=artifact.payload,
+        )
+
+    @router.get(
+        "/{chat_id}/artifacts/{artifact_id}",
+        response_model=ArtifactResponse,
+    )
+    async def get_artifact(
+        chat_id: uuid.UUID,
+        artifact_id: uuid.UUID,
+        request: Request,
+        response: Response,
+    ) -> ArtifactResponse:
+        user_id = _resolve_user_id(request, response)
+        artifact = await chat_service.get_artifact(artifact_id, user_id)
+        if artifact is None or artifact.chat_id != chat_id:
+            raise HTTPException(status_code=404, detail="Artifact not found")
+        return ArtifactResponse(
+            id=artifact.id,
+            chat_id=artifact.chat_id,
+            created_at=artifact.created_at,
+            payload=artifact.payload,
+        )
 
     return router
 

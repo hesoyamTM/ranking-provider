@@ -5,7 +5,9 @@ import uuid
 from typing import AsyncGenerator
 
 from src.models.agent import Message, Role
+from src.models.artifact import Artifact
 from src.models.session import Phase, SessionState
+from src.service.agent.artifact_extractor import ArtifactExtractor
 from src.service.agent.clarification_agent import ClarificationAgent
 from src.service.agent.confirmation_agent import (
     ConfirmAction,
@@ -13,10 +15,40 @@ from src.service.agent.confirmation_agent import (
 )
 from src.service.agent.extraction_agent import ExtractionAgent
 from src.service.agent.intent_classifier import IntentClassifier
-from src.service.agent.protocols import ChatRepository, Intent
+from src.service.agent.protocols import ArtifactRepository, ChatRepository, Intent
 from src.service.agent.synthesis_agent import SynthesisAgent
 
 logger = logging.getLogger(__name__)
+
+# Маркеры в стриме (на фронте отфильтровываются перед рендером markdown).
+_STATUS_MARKER = "__STATUS__:"
+_ARTIFACT_MARKER = "__ARTIFACT__:"
+_SUGGESTIONS_MARKER = "__SUGGESTIONS__:"
+
+# Префиксы строк, которые НЕ должны попадать в сохранённый текст ассистента —
+# это транзиентные UI-маркеры, фронт их фильтрует на лету, но они не нужны
+# в истории чата при перезагрузке.
+_TRANSIENT_PREFIXES = (_STATUS_MARKER, _ARTIFACT_MARKER, _SUGGESTIONS_MARKER)
+
+
+def _strip_transient_markers(text: str) -> str:
+    """Удалить из текста строки-маркеры, оставив только содержательный ответ."""
+    lines = [
+        line for line in text.split("\n")
+        if not line.lstrip().startswith(_TRANSIENT_PREFIXES)
+    ]
+    return "\n".join(lines).strip("\n")
+
+
+def _build_artifact_title(state: SessionState, max_len: int = 60) -> str:
+    """Краткое имя артефакта на основе компонентов и локации запроса."""
+    parts = [c.name.strip() for c in state.components if c.name and c.name.strip()]
+    base = " + ".join(parts) if parts else "Подбор провайдеров"
+    if state.location_name:
+        base = f"{base} · {state.location_name}"
+    if len(base) > max_len:
+        base = base[: max_len - 1].rstrip() + "…"
+    return base
 
 
 class AgentOrchestrator:
@@ -37,6 +69,8 @@ class AgentOrchestrator:
         clarification: ClarificationAgent,
         confirmation: ConfirmationAgent,
         synthesis: SynthesisAgent,
+        artifact_extractor: ArtifactExtractor,
+        artifact_repo: ArtifactRepository,
     ) -> None:
         self._chat_repo = chat_repo
         self._intent = intent
@@ -44,6 +78,8 @@ class AgentOrchestrator:
         self._clarification = clarification
         self._confirmation = confirmation
         self._synthesis = synthesis
+        self._artifact_extractor = artifact_extractor
+        self._artifact_repo = artifact_repo
 
     def send_message(
         self,
@@ -88,9 +124,10 @@ class AgentOrchestrator:
             yield chunk
 
         await self._chat_repo.save_session_state(chat_id, user_id, state)
+        clean_content = _strip_transient_markers("".join(chunks))
         await self._chat_repo.append_message(
             chat_id, user_id,
-            Message(role=Role.ASSISTANT, content="".join(chunks)),
+            Message(role=Role.ASSISTANT, content=clean_content),
         )
         logger.info(
             "Done: chat_id=%s phase_after=%s assistant_len=%d",
@@ -111,7 +148,7 @@ class AgentOrchestrator:
             decision = await self._confirmation.decide(state, user_message)
             if decision.action == ConfirmAction.CONFIRM:
                 state.transition(Phase.RANKING, "user confirmed")
-                async for chunk in self._run_ranking_and_synthesis(state):
+                async for chunk in self._run_ranking_and_synthesis(state, chat_id, user_id):
                     yield chunk
                 return
             if decision.action == ConfirmAction.RESTART:
@@ -152,22 +189,57 @@ class AgentOrchestrator:
             return
 
         if state.phase == Phase.RANKING:
-            async for chunk in self._run_ranking_and_synthesis(state):
+            async for chunk in self._run_ranking_and_synthesis(state, chat_id, user_id):
                 yield chunk
             return
 
         if state.phase == Phase.SYNTHESIZING:
-            async for chunk in self._synthesis.stream(state):
+            async for chunk in self._run_ranking_and_synthesis(state, chat_id, user_id):
                 yield chunk
-            state.transition(Phase.DONE, "synthesis finished")
 
     async def _run_ranking_and_synthesis(
-        self, state: SessionState
+        self,
+        state: SessionState,
+        chat_id: uuid.UUID,
+        user_id: uuid.UUID,
     ) -> AsyncGenerator[str, None]:
         state.transition(Phase.SYNTHESIZING, "ranking via tools")
+        markdown_parts: list[str] = []
         async for chunk in self._synthesis.stream(state):
+            if not chunk.startswith(_STATUS_MARKER):
+                markdown_parts.append(chunk)
             yield chunk
         state.transition(Phase.DONE, "synthesis finished")
+
+        synthesis_markdown = "".join(markdown_parts).strip()
+        if not synthesis_markdown:
+            return
+
+        try:
+            payload = await self._artifact_extractor.extract(state, synthesis_markdown)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Artifact extraction failed: %s", exc)
+            payload = None
+
+        if payload is None or not payload.providers:
+            logger.info("Artifact extraction produced empty payload — пропускаем сохранение")
+            return
+
+        if not payload.title:
+            payload.title = _build_artifact_title(state)
+
+        artifact = Artifact(chat_id=chat_id, user_id=user_id, payload=payload)
+        try:
+            await self._artifact_repo.save(artifact)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Artifact save failed: %s", exc)
+            return
+
+        logger.info(
+            "Artifact saved: id=%s chat_id=%s providers=%d",
+            artifact.id, chat_id, len(payload.providers),
+        )
+        yield f"\n{_ARTIFACT_MARKER}{artifact.id}\n"
 
     @staticmethod
     def _copy_state(target: SessionState, source: SessionState) -> None:
