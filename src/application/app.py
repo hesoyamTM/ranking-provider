@@ -21,6 +21,7 @@ from src.adapters.repository import (
     PostgresChatRepository,
     PostgresServiceRepository,
 )
+from src.adapters.yandex_cloud import YandexCloudClient, YandexCloudSearchIndexUpdater
 from src.controller.restapi.v1.ranking.router import get_html_router, get_router
 from src.models import Provider
 from src.service import ChatService, ProviderSyncWorker
@@ -190,11 +191,23 @@ class Application:
             artifact_repo=self.artifact_repo,
         )
 
+        self.search_index_updater: SearchIndexUpdater | None = None
+        if settings.use_yandex_search_index_sync:
+            yandex_cloud_client = YandexCloudClient(
+                api_key=settings.yandex_api_key,
+                folder_id=settings.yandex_folder_id,
+            )
+            self.search_index_updater = YandexCloudSearchIndexUpdater(
+                client=yandex_cloud_client,
+                vector_store_id=settings.yandex_vector_store_id,
+            )
+
         self.worker = ProviderSyncWorker(
             providers=providers,
             repository=self.repository,
             interval_seconds=settings.sync_interval_seconds,
             geocoder=self.geocoder,
+            search_index_updater=self.search_index_updater,
         )
 
     async def migrate(self) -> None:
