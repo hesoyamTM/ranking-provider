@@ -29,8 +29,14 @@ class YandexGPTAdapter:
         messages: list[Message],
         tools: list[dict[str, Any]] | None = None,
         temperature: float | None = None,
+        tool_choice: Any = None,
     ) -> LLMResponse:
-        """Один-шот вызов: возвращает либо текст, либо tool_calls."""
+        """Один-шот вызов: возвращает либо текст, либо tool_calls.
+
+        ``tool_choice`` пробрасывается в API напрямую (например,
+        ``{"type": "function", "function": {"name": "save_artifact"}}``
+        чтобы принудить модель к вызову конкретного тула).
+        """
         kwargs: dict[str, Any] = {
             "model": self._model,
             "messages": [m.to_openai_dict() for m in messages],
@@ -38,6 +44,8 @@ class YandexGPTAdapter:
         }
         if tools:
             kwargs["tools"] = tools
+        if tool_choice is not None:
+            kwargs["tool_choice"] = tool_choice
 
         response = await self._client.chat.completions.create(**kwargs)
         message = response.choices[0].message

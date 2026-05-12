@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Any, AsyncGenerator, Protocol, runtime_checkable
 
 from src.models.agent import LLMResponse, Message
+from src.models.artifact import Artifact
 from src.models.service_package import Provider, UserQuery
 from src.models.session import SessionState
 from src.service.scorer import Service
@@ -26,6 +27,7 @@ class LLMClient(Protocol):
         messages: list[Message],
         tools: list[dict[str, Any]] | None = None,
         temperature: float | None = None,
+        tool_choice: Any = None,
     ) -> LLMResponse: ...
 
     def stream(
@@ -87,3 +89,22 @@ class ChatRepository(Protocol):
     async def clear_session_state(
         self, chat_id: uuid.UUID, user_id: uuid.UUID
     ) -> None: ...
+
+
+@runtime_checkable
+class ArtifactRepository(Protocol):
+    """Хранилище финальных артефактов ранжирования по чатам."""
+
+    async def save(self, artifact: Artifact) -> None: ...
+
+    async def get_by_id(
+        self, artifact_id: uuid.UUID, user_id: uuid.UUID
+    ) -> Artifact | None: ...
+
+    async def get_latest_for_chat(
+        self, chat_id: uuid.UUID, user_id: uuid.UUID
+    ) -> Artifact | None: ...
+
+    async def list_by_chat(
+        self, chat_id: uuid.UUID, user_id: uuid.UUID
+    ) -> list[Artifact]: ...

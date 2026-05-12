@@ -79,6 +79,11 @@ class ConfirmationAgent:
         self._llm = llm
         self._prompt = load_prompt("confirmation")
 
+    _CONFIRM_SUGGESTIONS = json.dumps(
+        [{"question": "", "suggestions": ["Да, всё верно — запустить подбор", "Начать заново"]}],
+        ensure_ascii=False,
+    )
+
     async def render_spec(self, state: SessionState) -> AsyncGenerator[str, None]:
         payload = self._build_payload(state, mode="render")
         messages = [
@@ -88,6 +93,7 @@ class ConfirmationAgent:
         logger.info("Confirmation render: components=%d", len(state.components))
         async for chunk in self._llm.stream(messages, temperature=0.2):
             yield chunk
+        yield f"\n__SUGGESTIONS__:{self._CONFIRM_SUGGESTIONS}\n"
 
     async def decide(
         self, state: SessionState, user_message: str

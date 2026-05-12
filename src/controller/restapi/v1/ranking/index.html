@@ -529,6 +529,315 @@
             .messages, .composer { padding-left: 16px; padding-right: 16px; }
             .main-header { padding-left: 16px; padding-right: 16px; }
         }
+
+        /* ── Artifact panel (right) ──────────────────────────── */
+        .artifact-toggle {
+            position: fixed;
+            top: 14px;
+            right: 16px;
+            z-index: 30;
+            display: none;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: var(--c-bg);
+            border: 1px solid var(--c-primary);
+            color: var(--c-primary-darker);
+            border-radius: 20px;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+            transition: background 0.12s, color 0.12s;
+        }
+        .artifact-toggle:hover { background: var(--c-primary-light); }
+        .artifact-toggle.visible { display: inline-flex; }
+        .artifact-toggle.active {
+            background: var(--c-primary);
+            color: #fff;
+        }
+        .artifact-toggle .badge {
+            background: var(--c-primary);
+            color: #fff;
+            font-size: 11px;
+            padding: 1px 6px;
+            border-radius: 10px;
+            min-width: 16px;
+            text-align: center;
+        }
+        .artifact-toggle.active .badge {
+            background: #fff;
+            color: var(--c-primary);
+        }
+
+        .artifact-panel {
+            width: 0;
+            min-width: 0;
+            background: var(--c-bg);
+            border-left: 1px solid var(--c-border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: width 0.18s ease;
+        }
+        .artifact-panel.open { width: 420px; min-width: 420px; }
+
+        .artifact-header {
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--c-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            min-height: 64px;
+        }
+        .artifact-header-title {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--c-text);
+        }
+        .artifact-header-sub {
+            font-size: 11px;
+            color: var(--c-text-muted);
+            margin-top: 1px;
+        }
+        .artifact-close {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--c-text-muted);
+            font-size: 20px;
+            line-height: 1;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        .artifact-close:hover { background: var(--c-surface); color: var(--c-text); }
+
+        .artifact-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+            background: var(--c-surface);
+        }
+
+        .artifact-list-view,
+        .artifact-detail-view {
+            padding: 14px 18px 24px;
+        }
+
+        .artifact-empty {
+            padding: 32px 18px;
+            text-align: center;
+            color: var(--c-text-muted);
+            font-size: 13px;
+        }
+
+        .artifact-summary {
+            background: var(--c-bg);
+            border: 1px solid var(--c-border-light);
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 14px;
+            font-size: 13px;
+            line-height: 1.55;
+            color: var(--c-text-secondary);
+        }
+        .artifact-summary b { color: var(--c-text); }
+        .artifact-summary .comp-list {
+            margin-top: 6px;
+            padding-left: 18px;
+        }
+
+        .artifact-provider {
+            background: var(--c-bg);
+            border: 1px solid var(--c-border-light);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            box-shadow: var(--shadow-sm);
+        }
+        .artifact-provider-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .artifact-provider-rank {
+            font-size: 18px;
+        }
+        .artifact-provider-name {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--c-text);
+            flex: 1;
+        }
+        .artifact-provider-total {
+            font-size: 12px;
+            color: var(--c-primary-darker);
+            background: var(--c-primary-light);
+            padding: 3px 8px;
+            border-radius: 12px;
+            white-space: nowrap;
+        }
+        .artifact-provider-why {
+            font-size: 13px;
+            line-height: 1.55;
+            color: var(--c-text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .artifact-component {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--c-border-light);
+        }
+        .artifact-component:first-of-type {
+            border-top: none;
+            padding-top: 0;
+            margin-top: 0;
+        }
+        .artifact-component-title {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--c-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 8px;
+        }
+
+        .artifact-service {
+            background: var(--c-surface);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .artifact-service:last-child { margin-bottom: 0; }
+        .artifact-service-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .artifact-service-name {
+            font-weight: 500;
+            color: var(--c-text);
+        }
+        .artifact-service-category {
+            font-size: 11px;
+            color: var(--c-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .artifact-service-row {
+            color: var(--c-text-secondary);
+            line-height: 1.5;
+            margin: 2px 0;
+        }
+        .artifact-service-row b {
+            color: var(--c-text);
+            font-weight: 500;
+        }
+        .artifact-service-reason {
+            color: var(--c-text-secondary);
+            font-style: italic;
+            margin-top: 4px;
+        }
+
+        .artifact-recommendation {
+            background: var(--c-primary-light);
+            border-left: 3px solid var(--c-primary);
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-top: 8px;
+            font-size: 13px;
+            line-height: 1.55;
+            color: var(--c-text);
+        }
+        .artifact-recommendation b { color: var(--c-primary-darker); }
+
+        /* Artifact list view */
+        .artifact-list-view {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .artifact-list-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: var(--c-bg);
+            border: 1px solid var(--c-border-light);
+            box-shadow: var(--shadow-sm);
+            cursor: pointer;
+            text-align: left;
+            font-family: inherit;
+            width: 100%;
+            transition: border-color 0.14s, box-shadow 0.14s;
+        }
+        .artifact-list-item:hover {
+            border-color: var(--c-primary);
+            box-shadow: var(--shadow-md);
+        }
+
+        .artifact-list-item-main { flex: 1; min-width: 0; }
+
+        .artifact-list-item-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--c-text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+
+        .artifact-list-item-meta {
+            display: flex;
+            gap: 10px;
+            font-size: 12px;
+            color: var(--c-text-muted);
+        }
+
+        .artifact-list-item-arrow {
+            font-size: 20px;
+            color: var(--c-text-muted);
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        /* Back button in artifact header */
+        .artifact-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            min-width: 0;
+        }
+
+        .artifact-back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--c-primary-dark);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 0 0 4px 0;
+            border-radius: 0;
+        }
+        .artifact-back-btn:hover { color: var(--c-primary-darker); text-decoration: underline; }
+
+        @media (max-width: 960px) {
+            .artifact-panel.open { width: 320px; min-width: 320px; }
+        }
     </style>
 </head>
 <body>
@@ -588,7 +897,32 @@
             </div>
         </div>
     </main>
+
+    <!-- Artifact panel -->
+    <aside class="artifact-panel" id="artifact-panel">
+        <div class="artifact-header">
+            <div class="artifact-header-left">
+                <button class="artifact-back-btn" id="artifact-back-btn" style="display:none;">← К списку</button>
+                <div class="artifact-header-title" id="artifact-header-title">Подборы</div>
+                <div class="artifact-header-sub" id="artifact-sub"></div>
+            </div>
+            <button class="artifact-close" id="artifact-close" title="Свернуть">&times;</button>
+        </div>
+        <div class="artifact-body" id="artifact-body">
+            <div class="artifact-list-view" id="artifact-list-view">
+                <div class="artifact-empty">Артефакт появится после получения рекомендаций.</div>
+            </div>
+            <div class="artifact-detail-view" id="artifact-detail-view" style="display:none;"></div>
+        </div>
+    </aside>
 </div>
+
+<button class="artifact-toggle" id="artifact-toggle" title="Показать подробности">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 3h12M2 8h12M2 13h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+    Подробности
+</button>
 
 <script>
     const API_BASE = "/api/v1/chats";
@@ -611,8 +945,262 @@
 
     const SUGGESTIONS_MARKER = "__SUGGESTIONS__:";
     const STATUS_MARKER      = "__STATUS__:";
+    const ARTIFACT_MARKER    = "__ARTIFACT__:";
+
+    const $artifactPanel      = document.getElementById("artifact-panel");
+    const $artifactBody       = document.getElementById("artifact-body");
+    const $artifactSub        = document.getElementById("artifact-sub");
+    const $artifactClose      = document.getElementById("artifact-close");
+    const $artifactToggle     = document.getElementById("artifact-toggle");
+    const $artifactHeaderTitle = document.getElementById("artifact-header-title");
+    const $artifactBackBtn    = document.getElementById("artifact-back-btn");
+    const $artifactListView   = document.getElementById("artifact-list-view");
+    const $artifactDetailView = document.getElementById("artifact-detail-view");
+
+    // Список артефактов активного чата + текущий выбранный.
+    const artifactState = {
+        list: [],     // [{id, created_at, title, provider_count}, ...] — от новых к старым
+        activeId: null,
+        view: "list", // "list" | "detail"
+    };
 
     function shortId(id) { return id.split("-")[0]; }
+
+    function fmtPrice(n) {
+        if (n === null || n === undefined) return null;
+        try { return new Intl.NumberFormat("ru-RU").format(Math.round(n)); }
+        catch (_) { return String(n); }
+    }
+
+    function rankEmoji(rank) {
+        return { 1: "🥇", 2: "🥈", 3: "🥉" }[rank] || `#${rank}`;
+    }
+
+    function setArtifactToggleVisible(visible) {
+        $artifactToggle.classList.toggle("visible", !!visible);
+    }
+
+    function openArtifactPanel() {
+        $artifactPanel.classList.add("open");
+        $artifactToggle.classList.add("active");
+    }
+
+    function closeArtifactPanel() {
+        $artifactPanel.classList.remove("open");
+        $artifactToggle.classList.remove("active");
+    }
+
+    function clearArtifact() {
+        $artifactListView.innerHTML = '<div class="artifact-empty">Артефакт появится после получения рекомендаций.</div>';
+        $artifactDetailView.innerHTML = "";
+        $artifactDetailView.style.display = "none";
+        $artifactListView.style.display = "";
+        $artifactBackBtn.style.display = "none";
+        $artifactHeaderTitle.textContent = "Подборы";
+        $artifactSub.textContent = "";
+        artifactState.list = [];
+        artifactState.activeId = null;
+        artifactState.view = "list";
+        setArtifactToggleVisible(false);
+        closeArtifactPanel();
+    }
+
+    function fmtArtifactDate(iso) {
+        try {
+            const d = new Date(iso);
+            return d.toLocaleString("ru-RU", {
+                day: "2-digit", month: "2-digit",
+                hour: "2-digit", minute: "2-digit",
+            });
+        } catch (_) { return ""; }
+    }
+
+    function showArtifactListView() {
+        artifactState.view = "list";
+        $artifactDetailView.style.display = "none";
+        $artifactListView.style.display = "";
+        $artifactBackBtn.style.display = "none";
+        $artifactHeaderTitle.textContent = "Подборы";
+        const n = artifactState.list.length;
+        $artifactSub.textContent = n > 0 ? `${n} подбор${n === 1 ? "" : n < 5 ? "а" : "ов"}` : "";
+        renderArtifactList();
+    }
+
+    function renderArtifactList() {
+        const items = artifactState.list;
+        if (items.length === 0) {
+            $artifactListView.innerHTML = '<div class="artifact-empty">Артефакт появится после получения рекомендаций.</div>';
+            return;
+        }
+        $artifactListView.innerHTML = "";
+        items.forEach((it, idx) => {
+            const btn = document.createElement("button");
+            btn.className = "artifact-list-item";
+            const title = it.title || `Подбор #${items.length - idx}`;
+            const metaParts = [];
+            if (it.provider_count) metaParts.push(`${it.provider_count} провайдер${it.provider_count === 1 ? "" : it.provider_count < 5 ? "а" : "ов"}`);
+            metaParts.push(fmtArtifactDate(it.created_at));
+            btn.innerHTML = `
+                <div class="artifact-list-item-main">
+                    <div class="artifact-list-item-title" title="${escapeHtml(title)}">${escapeHtml(title)}</div>
+                    <div class="artifact-list-item-meta">${metaParts.map(escapeHtml).join(" · ")}</div>
+                </div>
+                <div class="artifact-list-item-arrow">›</div>
+            `;
+            btn.onclick = () => showArtifactDetailView(it.id);
+            $artifactListView.appendChild(btn);
+        });
+    }
+
+    async function showArtifactDetailView(artifactId) {
+        if (!state.activeChatId || !artifactId) return;
+        const data = await fetchArtifact(state.activeChatId, artifactId);
+        if (!data || !data.payload) return;
+        artifactState.activeId = artifactId;
+        artifactState.view = "detail";
+        const item = artifactState.list.find(a => a.id === artifactId);
+        $artifactHeaderTitle.textContent = (item && item.title) || "Подробности";
+        const pc = data.payload.providers ? data.payload.providers.length : 0;
+        $artifactSub.textContent = pc > 0 ? `${pc} провайдер${pc === 1 ? "" : pc < 5 ? "а" : "ов"}` : "";
+        $artifactBackBtn.style.display = "";
+        $artifactListView.style.display = "none";
+        $artifactDetailView.style.display = "";
+        $artifactDetailView.innerHTML = buildArtifactDetailHtml(data.payload);
+    }
+
+    function buildArtifactDetailHtml(payload) {
+        if (!payload || !payload.providers || payload.providers.length === 0) return "";
+
+        const parts = [];
+
+        if (payload.query_summary || (payload.components && payload.components.length > 0)) {
+            let html = '<div class="artifact-summary">';
+            if (payload.query_summary) {
+                html += `<b>Что я понял:</b> ${escapeHtml(payload.query_summary)}`;
+            }
+            if (payload.components && payload.components.length > 0) {
+                html += '<div><b>Компоненты системы:</b><ul class="comp-list">';
+                for (const c of payload.components) {
+                    html += `<li>${escapeHtml(c)}</li>`;
+                }
+                html += '</ul></div>';
+            }
+            html += '</div>';
+            parts.push(html);
+        }
+
+        for (const prov of payload.providers) {
+            let html = '<div class="artifact-provider">';
+            html += '<div class="artifact-provider-head">';
+            html += `<div class="artifact-provider-rank">${rankEmoji(prov.rank)}</div>`;
+            html += `<div class="artifact-provider-name">${escapeHtml(prov.name || "—")}</div>`;
+            const total = fmtPrice(prov.total_monthly_price_rub);
+            if (total) {
+                html += `<div class="artifact-provider-total">~${total} ₽/мес</div>`;
+            }
+            html += '</div>';
+
+            if (prov.why) {
+                html += `<div class="artifact-provider-why">${escapeHtml(prov.why)}</div>`;
+            }
+
+            const comps = prov.components || [];
+            for (const comp of comps) {
+                html += '<div class="artifact-component">';
+                if (comps.length > 1 || (comp.component_name && comp.component_name !== "Услуги")) {
+                    html += `<div class="artifact-component-title">${escapeHtml(comp.component_name || "Услуги")}</div>`;
+                }
+                for (const svc of (comp.services || [])) {
+                    html += '<div class="artifact-service">';
+                    html += '<div class="artifact-service-head">';
+                    html += `<div class="artifact-service-name">${escapeHtml(svc.name || "—")}</div>`;
+                    if (svc.category) {
+                        html += `<div class="artifact-service-category">${escapeHtml(svc.category)}</div>`;
+                    }
+                    html += '</div>';
+
+                    if (svc.description) {
+                        html += `<div class="artifact-service-row"><b>Конфигурация:</b> ${escapeHtml(svc.description)}</div>`;
+                    }
+                    const price = fmtPrice(svc.monthly_price_rub);
+                    const priceFrom = fmtPrice(svc.price_from_rub);
+                    if (price || priceFrom) {
+                        let priceLine = '<div class="artifact-service-row"><b>Стоимость:</b> ';
+                        if (price) priceLine += `~${price} ₽/мес`;
+                        if (priceFrom) {
+                            priceLine += price ? ` <span style="color:var(--c-text-muted);">(от ${priceFrom} ₽` : `от ${priceFrom} ₽`;
+                            if (svc.price_unit) priceLine += ` за ${escapeHtml(svc.price_unit)}`;
+                            priceLine += price ? ')</span>' : '';
+                        }
+                        priceLine += '</div>';
+                        html += priceLine;
+                    }
+                    if (svc.regions && svc.regions.length > 0) {
+                        html += `<div class="artifact-service-row"><b>Регионы:</b> ${svc.regions.map(escapeHtml).join(", ")}</div>`;
+                    }
+                    if (svc.reason) {
+                        html += `<div class="artifact-service-reason">${escapeHtml(svc.reason)}</div>`;
+                    }
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+
+            html += '</div>';
+            parts.push(html);
+        }
+
+        if (payload.final_recommendation) {
+            parts.push(`<div class="artifact-recommendation"><b>Итоговая рекомендация.</b> ${escapeHtml(payload.final_recommendation)}</div>`);
+        }
+
+        return parts.join("");
+    }
+
+    function escapeHtml(s) {
+        if (s === null || s === undefined) return "";
+        return String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    async function fetchArtifact(chatId, artifactId) {
+        const url = artifactId
+            ? `${API_BASE}/${chatId}/artifacts/${artifactId}`
+            : `${API_BASE}/${chatId}/artifacts/latest`;
+        const res = await fetch(url, { credentials: "include" });
+        if (!res.ok) return null;
+        return await res.json();
+    }
+
+    async function fetchArtifactList(chatId) {
+        const res = await fetch(`${API_BASE}/${chatId}/artifacts`, { credentials: "include" });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.artifacts || [];
+    }
+
+    async function refreshArtifactsForChat(chatId, opts = {}) {
+        const list = await fetchArtifactList(chatId);
+        if (list.length === 0) {
+            clearArtifact();
+            return;
+        }
+        artifactState.list = list;
+        setArtifactToggleVisible(true);
+
+        if (opts.selectId && list.find(a => a.id === opts.selectId)) {
+            // New artifact just arrived — navigate straight to its detail view.
+            await showArtifactDetailView(opts.selectId);
+            if (opts.open) openArtifactPanel();
+        } else {
+            // Opening existing chat — show the list.
+            showArtifactListView();
+        }
+    }
 
     function renderChatList() {
         $list.querySelectorAll(".chat-item").forEach(el => el.remove());
@@ -643,6 +1231,20 @@
         return inner;
     }
 
+    function stripTransientMarkers(text) {
+        if (!text) return text;
+        return text
+            .split("\n")
+            .filter(line => {
+                const t = line.trimStart();
+                return !t.startsWith(STATUS_MARKER)
+                    && !t.startsWith(ARTIFACT_MARKER)
+                    && !t.startsWith(SUGGESTIONS_MARKER);
+            })
+            .join("\n")
+            .replace(/^\n+|\n+$/g, "");
+    }
+
     function appendMessage(role, text) {
         const inner = ensureMessagesContainer();
         const wrap = document.createElement("div");
@@ -655,7 +1257,7 @@
         const bubble = document.createElement("div");
         if (role === "assistant") {
             bubble.className = "bubble md";
-            bubble.innerHTML = marked.parse(text);
+            bubble.innerHTML = marked.parse(stripTransientMarkers(text));
         } else {
             bubble.className = "bubble";
             bubble.textContent = text;
@@ -792,9 +1394,12 @@
         state.activeChatId = chatId;
         renderChatList();
         clearSuggestions();
+        clearArtifact();
         $title.textContent = `Чат · ${shortId(chatId)}`;
         $sub.textContent = "Общение с агентом ранжирования провайдеров";
         $messages.innerHTML = "";
+
+        refreshArtifactsForChat(chatId).catch(e => console.error(e));
 
         try {
             const res = await fetch(`${API_BASE}/${chatId}`, { credentials: "include" });
@@ -832,6 +1437,21 @@
             }
         }
         return { text: clean.join("\n"), lastStatus };
+    }
+
+    // Вытаскиваем __ARTIFACT__:<id> из текста, возвращаем чистый текст и id.
+    function extractArtifactId(raw) {
+        const lines = raw.split("\n");
+        const clean = [];
+        let artifactId = null;
+        for (const line of lines) {
+            if (line.startsWith(ARTIFACT_MARKER)) {
+                artifactId = line.slice(ARTIFACT_MARKER.length).trim();
+            } else {
+                clean.push(line);
+            }
+        }
+        return { text: clean.join("\n"), artifactId };
     }
 
     function extractSuggestions(raw) {
@@ -895,9 +1515,10 @@
                 if (done) break;
                 acc += decoder.decode(value, { stream: true });
 
-                // Strip status and suggestion markers before rendering.
+                // Strip status, artifact and suggestion markers before rendering.
                 const { text: noStatus, lastStatus } = extractStatuses(acc);
-                const { text: visibleText } = extractSuggestions(noStatus);
+                const { text: noArtifact } = extractArtifactId(noStatus);
+                const { text: visibleText } = extractSuggestions(noArtifact);
 
                 const hasRealText = visibleText.trim().length > 0;
                 if (hasRealText) {
@@ -912,12 +1533,22 @@
                 scrollToBottom();
             }
 
-            // Final pass: extract suggestions and show chips.
+            // Final pass: extract artifact id, suggestions, render text.
             const { text: noStatusFinal } = extractStatuses(acc);
-            const { text: finalText, suggestions } = extractSuggestions(noStatusFinal);
+            const { text: noArtifactFinal, artifactId } = extractArtifactId(noStatusFinal);
+            const { text: finalText, suggestions } = extractSuggestions(noArtifactFinal);
             setStatusLine(typingBubble, null);
             typingBubble.innerHTML = marked.parse(finalText);
             if (suggestions) showSuggestions(suggestions);
+
+            if (artifactId && state.activeChatId) {
+                try {
+                    await refreshArtifactsForChat(state.activeChatId, {
+                        selectId: artifactId,
+                        open: true,
+                    });
+                } catch (e) { console.error(e); }
+            }
 
             typingWrap.id = "";
         } catch (e) {
@@ -937,6 +1568,12 @@
 
     $newChatBtn.addEventListener("click", createChat);
     $sendBtn.addEventListener("click", sendMessage);
+    $artifactClose.addEventListener("click", closeArtifactPanel);
+    $artifactBackBtn.addEventListener("click", showArtifactListView);
+    $artifactToggle.addEventListener("click", () => {
+        if ($artifactPanel.classList.contains("open")) closeArtifactPanel();
+        else openArtifactPanel();
+    });
     $input.addEventListener("input", () => {
         autoresize();
         $sendBtn.disabled = $input.disabled || $input.value.trim() === "";
